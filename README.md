@@ -1,6 +1,6 @@
 # Preguntale a la compu 🎙️🤖
 
-![Vibe Coded](https://shields.io)
+[![Built with Gemma](https://vibecoded.fyi/badges/flat/llms/gemma.svg)](https://vibecoded.fyi/)
 
 Asistente de voz continuo y 100% local en español para Linux/Ubuntu que utiliza **Whisper**, **Ollama** y **Kokoro TTS**.
 
