@@ -1,35 +1,17 @@
-# Consultar Computadora 🎙️🤖
+# Preguntale a la compu 🎙️🤖
 
-Asistente de voz continuo y 100% local en español para Linux/Ubuntu. Escucha en segundo plano la palabra clave **"Computadora"**, transcribe tu consulta con **Whisper**, la procesa con **Ollama** y responde en voz alta usando **Kokoro TTS**.
+![Vibe Coded](https://shields.io)
 
-## Requisitos previos
-- Linux (Ubuntu / Debian) con micrófono y salida de audio.
-- [Ollama](https://ollama.com) instalado con el modelo descargado (`ollama pull gemma4:e4b`).
+Asistente de voz continuo y 100% local en español para Linux/Ubuntu que utiliza **Whisper**, **Ollama** y **Kokoro TTS**.
 
-## Instalación rápida
+> **Nota:** Este proyecto está **99% vibecodeado** (creado y depurado mediante iteraciones conversacionales con IA).
 
+## Instalación y uso
+Clona el repositorio, ejecuta el script de instalación y lanza el asistente diciendo "Computadora":
 ```bash
 git clone https://github.com
-cd consultar-computadora
+cd preguntale-a-la-compu
 ./install.sh
-```
-
-## Uso
-
-Ejecuta el comando desde cualquier terminal:
-
-```bash
 consultar-computadora
 ```
-
-Di **"Computadora"**, espera el pitido de confirmación y haz tu pregunta. Presiona `Ctrl + C` para apagar el micrófono y salir.
-
-### Opciones disponibles
-- `-m {base,small,turbo}`: Cambia la precisión del modelo Whisper (por defecto: `base`).
-- `--ollama MODELO`: Usa otro modelo de Ollama (por defecto: `gemma4:e4b`).
-- `-v {ef_dora,em_alex,em_santa}`: Cambia la voz en español de Kokoro (por defecto: `ef_dora`).
-
-Ejemplo:
-```bash
-consultar-computadora -m small --ollama llama3.2 -v em_alex
-```
+*(Puedes personalizar el modelo Whisper, Ollama o la voz de Kokoro mediante sus respectivas banderas de configuración).*
