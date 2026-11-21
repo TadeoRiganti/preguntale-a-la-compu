@@ -1,0 +1,29 @@
+[project]
+name = "consultar-computadora"
+version = "0.1.0"
+description = "Asistente de voz continuo 100% local en español para Linux (Whisper + Ollama + Kokoro TTS)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "kokoro>=0.9.4",
+    "faster-whisper>=1.1.0",
+    "sounddevice>=0.5.1",
+    "soundfile>=0.13.0",
+    "numpy>=2.0.0",
+    "torch",
+]
+
+[project.scripts]
+consultar-computadora = "consultar_computadora.cli:main"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://pytorch.org"
+explicit = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
