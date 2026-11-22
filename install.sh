@@ -6,7 +6,7 @@ sudo apt-get update && sudo apt-get install -y espeak-ng libportaudio2 curl
 
 if ! command -v uv &> /dev/null; then
     echo "⚡ Instalando uv..."
-    curl -LsSf https://astral.sh | sh
+    curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
