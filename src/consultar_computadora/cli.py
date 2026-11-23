@@ -20,6 +20,7 @@ UMBRAL_SILENCIO = 0.022
 SEGUNDOS_SILENCIO = 1.6
 
 # --- Ollama (API local, solo con la biblioteca estándar) ---
+OLLAMA_KEEP_ALIVE = "30m"      # cuánto queda el modelo en memoria tras la última consulta
 PROMPT_SISTEMA = (
     "Responde en español de forma clara y concisa, en texto plano, "
     "sin usar listas, asteriscos ni símbolos de markdown."
@@ -110,6 +111,13 @@ def ollama_disponible():
         return False
 
 
+def precargar_ollama(modelo):
+    """Carga el modelo en memoria sin generar texto, para que la primera pregunta no pague la carga."""
+    cuerpo = {"model": modelo, "keep_alive": OLLAMA_KEEP_ALIVE, "stream": False}
+    with ollama_post("/api/generate", cuerpo, timeout=300):
+        pass
+
+
 def consultar_ollama(modelo, pregunta):
     """Consulta a Ollama por su API local y devuelve la respuesta completa."""
     cuerpo = {
@@ -120,6 +128,7 @@ def consultar_ollama(modelo, pregunta):
         ],
         "stream": False,
         "think": False,
+        "keep_alive": OLLAMA_KEEP_ALIVE,
     }
     with ollama_post("/api/chat", cuerpo) as respuesta:
         return json.load(respuesta)["message"]["content"]
@@ -154,6 +163,13 @@ def main():
     whisper_wake = cargar_whisper("tiny")
     whisper_main = whisper_wake if args.modelo == "tiny" else cargar_whisper(args.modelo)
     kokoro_pipeline = KPipeline(lang_code='e', repo_id='hexgrad/Kokoro-82M')
+
+    try:
+        precargar_ollama(args.ollama)
+    except Exception as e:
+        print(f"❌ Error: Ollama no pudo cargar el modelo '{args.ollama}' ({e}). "
+              f"¿Hiciste 'ollama pull {args.ollama}'?")
+        return
 
     print(f"\n🟢 La computadora está activa (Whisper: {args.modelo} | Ollama: {args.ollama}).")
     print("   Di 'Computadora' para preguntar (Ctrl+C para salir).\n")
