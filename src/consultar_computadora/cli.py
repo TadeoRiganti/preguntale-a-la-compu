@@ -21,10 +21,12 @@ SEGUNDOS_SILENCIO = 1.6
 
 # --- Ollama (API local, solo con la biblioteca estándar) ---
 OLLAMA_KEEP_ALIVE = "30m"      # cuánto queda el modelo en memoria tras la última consulta
+MIN_CARACTERES_ORACION = 25    # evita mandar al TTS fragmentos demasiado cortos
 PROMPT_SISTEMA = (
     "Responde en español de forma clara y concisa, en texto plano, "
     "sin usar listas, asteriscos ni símbolos de markdown."
 )
+FIN_ORACION = re.compile(r"(?<=[.!?…])\s+|\n+")
 
 
 def obtener_url_ollama():
@@ -118,20 +120,63 @@ def precargar_ollama(modelo):
         pass
 
 
-def consultar_ollama(modelo, pregunta):
-    """Consulta a Ollama por su API local y devuelve la respuesta completa."""
+def generar_respuesta(modelo, pregunta):
+    """Pide la respuesta en streaming y va entregando trozos de texto a medida que llegan."""
     cuerpo = {
         "model": modelo,
         "messages": [
             {"role": "system", "content": PROMPT_SISTEMA},
             {"role": "user", "content": pregunta},
         ],
-        "stream": False,
+        "stream": True,
         "think": False,
         "keep_alive": OLLAMA_KEEP_ALIVE,
     }
     with ollama_post("/api/chat", cuerpo) as respuesta:
-        return json.load(respuesta)["message"]["content"]
+        for linea in respuesta:
+            if not linea.strip():
+                continue
+            dato = json.loads(linea)
+            if "error" in dato:
+                raise RuntimeError(dato["error"])
+            trozo = dato.get("message", {}).get("content", "")
+            if trozo:
+                yield trozo
+            if dato.get("done"):
+                break
+
+
+def agrupar_oraciones(trozos):
+    """Agrupa el texto en streaming en oraciones completas (y sin símbolos de markdown)."""
+    pendiente = ""
+    buffer = ""
+    for trozo in trozos:
+        buffer += re.sub(r"[*#_`]", "", trozo)
+        partes = FIN_ORACION.split(buffer)
+        buffer = partes.pop()  # último fragmento: puede estar incompleto
+        for parte in partes:
+            pendiente = f"{pendiente} {parte}".strip()
+            if len(pendiente) >= MIN_CARACTERES_ORACION:
+                yield pendiente
+                pendiente = ""
+    resto = f"{pendiente} {buffer}".strip()
+    if resto:
+        yield resto
+
+
+def hablar_respuesta(modelo, pregunta, kokoro_pipeline, voz):
+    """Genera la respuesta en streaming y la va diciendo oración por oración.
+
+    Devuelve True si se dijo algo.
+    """
+    hablo = False
+    for oracion in agrupar_oraciones(generar_respuesta(modelo, pregunta)):
+        print(oracion, end=" ", flush=True)
+        for _, _, audio in kokoro_pipeline(oracion, voice=voz, speed=1.0):
+            hablo = True
+            sd.play(audio, 24000)
+            sd.wait()
+    return hablo
 
 
 def main():
@@ -201,18 +246,13 @@ def main():
                     continue
 
                 print(f"🗣️  Tú: {pregunta}")
+                print("🤖 Computadora: ", end="", flush=True)
 
                 try:
-                    respuesta = re.sub(r'[*#_`]', '', consultar_ollama(args.ollama, pregunta)).strip()
+                    hablo = hablar_respuesta(args.ollama, pregunta, kokoro_pipeline, args.voz)
+                    print("\n" if hablo else "(respuesta vacía)\n")
                 except Exception as e:
-                    print(f"❌ Error al consultar a Ollama: {e}\n")
-                    continue
-
-                print(f"🤖 Computadora: {respuesta}\n")
-
-                for gs, ps, audio in kokoro_pipeline(respuesta, voice=args.voz, speed=1.0):
-                    sd.play(audio, 24000)
-                    sd.wait()
+                    print(f"\n❌ Error al generar la respuesta: {e}\n")
 
                 time.sleep(0.4)
                 print("🟢 Esperando 'Computadora'...")
