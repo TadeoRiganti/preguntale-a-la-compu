@@ -1,8 +1,5 @@
-import re
 import time
-import queue
 import argparse
-import threading
 import warnings
 from collections import deque
 import numpy as np
@@ -14,13 +11,12 @@ from faster_whisper import WhisperModel
 from kokoro import KPipeline
 
 from .llm import OLLAMA_URL, generar_respuesta, ollama_disponible, precargar_ollama
+from .tts import agrupar_oraciones, hablar_respuesta
 
 WAKE_WORDS = ["computadora", "computador", "compu"]
 SAMPLE_RATE = 16000
 UMBRAL_SILENCIO = 0.022
 SEGUNDOS_SILENCIO = 1.6
-MIN_CARACTERES_ORACION = 25    # evita mandar al TTS fragmentos demasiado cortos
-FIN_ORACION = re.compile(r"(?<=[.!?…])\s+|\n+")
 
 
 def emitir_tono(frecuencia=880, duracion=0.12):
@@ -77,59 +73,6 @@ def cargar_whisper(nombre_modelo):
     except Exception:
         print(f"📥 Descargando modelo Whisper '{nombre_modelo}' por única vez...")
         return WhisperModel(nombre_modelo, device="cpu", compute_type="int8")
-
-
-def agrupar_oraciones(trozos):
-    """Agrupa el texto en streaming en oraciones completas (y sin símbolos de markdown)."""
-    pendiente = ""
-    buffer = ""
-    for trozo in trozos:
-        buffer += re.sub(r"[*#_`]", "", trozo)
-        partes = FIN_ORACION.split(buffer)
-        buffer = partes.pop()  # último fragmento: puede estar incompleto
-        for parte in partes:
-            pendiente = f"{pendiente} {parte}".strip()
-            if len(pendiente) >= MIN_CARACTERES_ORACION:
-                yield pendiente
-                pendiente = ""
-    resto = f"{pendiente} {buffer}".strip()
-    if resto:
-        yield resto
-
-
-def hablar_respuesta(modelo, pregunta, kokoro_pipeline, voz):
-    """Genera, sintetiza y reproduce la respuesta en paralelo, oración por oración.
-
-    Un hilo consume el streaming de Ollama y sintetiza cada oración con Kokoro mientras
-    el hilo principal reproduce el audio ya listo. Devuelve True si se dijo algo.
-    """
-    cola = queue.Queue(maxsize=2)
-    errores = []
-
-    def productor():
-        try:
-            for oracion in agrupar_oraciones(generar_respuesta(modelo, pregunta)):
-                print(oracion, end=" ", flush=True)
-                for _, _, audio in kokoro_pipeline(oracion, voice=voz, speed=1.0):
-                    cola.put(audio)
-        except Exception as e:
-            errores.append(e)
-        finally:
-            cola.put(None)
-
-    hilo = threading.Thread(target=productor, daemon=True)
-    hilo.start()
-
-    hablo = False
-    while (audio := cola.get()) is not None:
-        hablo = True
-        sd.play(audio, 24000)
-        sd.wait()
-    hilo.join()
-
-    if errores:
-        raise errores[0]
-    return hablo
 
 
 def main():
@@ -202,7 +145,8 @@ def main():
                 print("🤖 Computadora: ", end="", flush=True)
 
                 try:
-                    hablo = hablar_respuesta(args.ollama, pregunta, kokoro_pipeline, args.voz)
+                    oraciones = agrupar_oraciones(generar_respuesta(args.ollama, pregunta))
+                    hablo = hablar_respuesta(oraciones, kokoro_pipeline, args.voz)
                     print("\n" if hablo else "(respuesta vacía)\n")
                 except Exception as e:
                     print(f"\n❌ Error al generar la respuesta: {e}\n")
