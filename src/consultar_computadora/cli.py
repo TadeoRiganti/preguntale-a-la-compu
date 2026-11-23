@@ -1,12 +1,9 @@
-import os
 import re
-import json
 import time
 import queue
 import argparse
 import threading
 import warnings
-import urllib.request
 from collections import deque
 import numpy as np
 import sounddevice as sd
@@ -16,31 +13,14 @@ warnings.filterwarnings("ignore")
 from faster_whisper import WhisperModel
 from kokoro import KPipeline
 
+from .llm import OLLAMA_URL, generar_respuesta, ollama_disponible, precargar_ollama
+
 WAKE_WORDS = ["computadora", "computador", "compu"]
 SAMPLE_RATE = 16000
 UMBRAL_SILENCIO = 0.022
 SEGUNDOS_SILENCIO = 1.6
-
-# --- Ollama (API local, solo con la biblioteca estándar) ---
-OLLAMA_KEEP_ALIVE = "30m"      # cuánto queda el modelo en memoria tras la última consulta
-MAX_TOKENS_RESPUESTA = 300     # tope de tokens por respuesta (respuestas habladas cortas)
 MIN_CARACTERES_ORACION = 25    # evita mandar al TTS fragmentos demasiado cortos
-PROMPT_SISTEMA = (
-    "Responde en español de forma clara y concisa, en texto plano, "
-    "sin usar listas, asteriscos ni símbolos de markdown."
-)
 FIN_ORACION = re.compile(r"(?<=[.!?…])\s+|\n+")
-
-
-def obtener_url_ollama():
-    """Respeta OLLAMA_HOST si está definida; si no, usa el puerto por defecto."""
-    host = os.environ.get("OLLAMA_HOST", "").strip() or "127.0.0.1:11434"
-    if not host.startswith(("http://", "https://")):
-        host = "http://" + host
-    return host.replace("0.0.0.0", "127.0.0.1").rstrip("/")
-
-
-OLLAMA_URL = obtener_url_ollama()
 
 
 def emitir_tono(frecuencia=880, duracion=0.12):
@@ -97,57 +77,6 @@ def cargar_whisper(nombre_modelo):
     except Exception:
         print(f"📥 Descargando modelo Whisper '{nombre_modelo}' por única vez...")
         return WhisperModel(nombre_modelo, device="cpu", compute_type="int8")
-
-
-def ollama_post(ruta, cuerpo, timeout=120):
-    solicitud = urllib.request.Request(
-        OLLAMA_URL + ruta,
-        data=json.dumps(cuerpo).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-    )
-    return urllib.request.urlopen(solicitud, timeout=timeout)
-
-
-def ollama_disponible():
-    try:
-        urllib.request.urlopen(OLLAMA_URL + "/api/version", timeout=3).close()
-        return True
-    except Exception:
-        return False
-
-
-def precargar_ollama(modelo):
-    """Carga el modelo en memoria sin generar texto, para que la primera pregunta no pague la carga."""
-    cuerpo = {"model": modelo, "keep_alive": OLLAMA_KEEP_ALIVE, "stream": False}
-    with ollama_post("/api/generate", cuerpo, timeout=300):
-        pass
-
-
-def generar_respuesta(modelo, pregunta):
-    """Pide la respuesta en streaming y va entregando trozos de texto a medida que llegan."""
-    cuerpo = {
-        "model": modelo,
-        "messages": [
-            {"role": "system", "content": PROMPT_SISTEMA},
-            {"role": "user", "content": pregunta},
-        ],
-        "stream": True,
-        "think": False,
-        "keep_alive": OLLAMA_KEEP_ALIVE,
-        "options": {"num_predict": MAX_TOKENS_RESPUESTA},
-    }
-    with ollama_post("/api/chat", cuerpo) as respuesta:
-        for linea in respuesta:
-            if not linea.strip():
-                continue
-            dato = json.loads(linea)
-            if "error" in dato:
-                raise RuntimeError(dato["error"])
-            trozo = dato.get("message", {}).get("content", "")
-            if trozo:
-                yield trozo
-            if dato.get("done"):
-                break
 
 
 def agrupar_oraciones(trozos):
