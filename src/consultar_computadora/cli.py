@@ -4,23 +4,14 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-from faster_whisper import WhisperModel
 from kokoro import KPipeline
 
 from .audio import SEGUNDOS_SILENCIO, emitir_tono, grabar_frase
 from .llm import OLLAMA_URL, generar_respuesta, ollama_disponible, precargar_ollama
+from .stt import cargar_whisper, transcribir_activacion, transcribir_pregunta
 from .tts import agrupar_oraciones, hablar_respuesta
 
 WAKE_WORDS = ["computadora", "computador", "compu"]
-
-
-def cargar_whisper(nombre_modelo):
-    """Intenta cargar desde caché local; si no existe, lo descarga."""
-    try:
-        return WhisperModel(nombre_modelo, device="cpu", compute_type="int8", local_files_only=True)
-    except Exception:
-        print(f"📥 Descargando modelo Whisper '{nombre_modelo}' por única vez...")
-        return WhisperModel(nombre_modelo, device="cpu", compute_type="int8")
 
 
 def main():
@@ -66,23 +57,14 @@ def main():
     try:
         while True:
             audio_wake = grabar_frase(max_segundos=2.2, segundos_corte=0.7)
-            segs, _ = whisper_wake.transcribe(audio_wake, language="es", beam_size=1, vad_filter=True)
-            texto_detectado = " ".join([s.text for s in segs]).lower().strip()
+            texto_detectado = transcribir_activacion(whisper_wake, audio_wake)
 
             if any(w in texto_detectado for w in WAKE_WORDS):
                 emitir_tono(880, 0.12)
                 print("🎤 Ahora te estoy escuchando... ¿Qué querías saber?")
 
                 audio_pregunta = grabar_frase(segundos_corte=SEGUNDOS_SILENCIO)
-                segs_q, _ = whisper_main.transcribe(
-                    audio_pregunta,
-                    language="es",
-                    beam_size=5,
-                    vad_filter=True,
-                    vad_parameters=dict(threshold=0.35, min_silence_duration_ms=250, speech_pad_ms=400),
-                    initial_prompt="Computadora, esta es una consulta en español."
-                )
-                pregunta = " ".join([s.text for s in segs_q]).strip()
+                pregunta = transcribir_pregunta(whisper_main, audio_pregunta)
 
                 if not pregunta:
                     emitir_tono(440, 0.15)
