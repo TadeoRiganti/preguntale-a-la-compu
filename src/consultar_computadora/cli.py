@@ -1,10 +1,10 @@
 import os
 import re
+import json
 import time
-import shutil
 import argparse
-import subprocess
 import warnings
+import urllib.request
 from collections import deque
 import numpy as np
 import sounddevice as sd
@@ -18,6 +18,23 @@ WAKE_WORDS = ["computadora", "computador", "compu"]
 SAMPLE_RATE = 16000
 UMBRAL_SILENCIO = 0.022
 SEGUNDOS_SILENCIO = 1.6
+
+# --- Ollama (API local, solo con la biblioteca estándar) ---
+PROMPT_SISTEMA = (
+    "Responde en español de forma clara y concisa, en texto plano, "
+    "sin usar listas, asteriscos ni símbolos de markdown."
+)
+
+
+def obtener_url_ollama():
+    """Respeta OLLAMA_HOST si está definida; si no, usa el puerto por defecto."""
+    host = os.environ.get("OLLAMA_HOST", "").strip() or "127.0.0.1:11434"
+    if not host.startswith(("http://", "https://")):
+        host = "http://" + host
+    return host.replace("0.0.0.0", "127.0.0.1").rstrip("/")
+
+
+OLLAMA_URL = obtener_url_ollama()
 
 
 def emitir_tono(frecuencia=880, duracion=0.12):
@@ -76,6 +93,38 @@ def cargar_whisper(nombre_modelo):
         return WhisperModel(nombre_modelo, device="cpu", compute_type="int8")
 
 
+def ollama_post(ruta, cuerpo, timeout=120):
+    solicitud = urllib.request.Request(
+        OLLAMA_URL + ruta,
+        data=json.dumps(cuerpo).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    return urllib.request.urlopen(solicitud, timeout=timeout)
+
+
+def ollama_disponible():
+    try:
+        urllib.request.urlopen(OLLAMA_URL + "/api/version", timeout=3).close()
+        return True
+    except Exception:
+        return False
+
+
+def consultar_ollama(modelo, pregunta):
+    """Consulta a Ollama por su API local y devuelve la respuesta completa."""
+    cuerpo = {
+        "model": modelo,
+        "messages": [
+            {"role": "system", "content": PROMPT_SISTEMA},
+            {"role": "user", "content": pregunta},
+        ],
+        "stream": False,
+        "think": False,
+    }
+    with ollama_post("/api/chat", cuerpo) as respuesta:
+        return json.load(respuesta)["message"]["content"]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Asistente continuo activado por voz ('Computadora')")
     parser.add_argument(
@@ -96,8 +145,9 @@ def main():
     )
     args = parser.parse_args()
 
-    if not shutil.which("ollama"):
-        print("❌ Error: Ollama no está instalado o no se encuentra en el PATH.")
+    if not ollama_disponible():
+        print(f"❌ Error: no se pudo conectar con Ollama en {OLLAMA_URL}. "
+              "¿Está instalado y el servicio corriendo?")
         return
 
     print("Cargando modelos en memoria...")
@@ -136,16 +186,11 @@ def main():
 
                 print(f"🗣️  Tú: {pregunta}")
 
-                prompt_sistema = (
-                    "Responde en español de forma clara y concisa, en texto plano, "
-                    "sin usar listas, asteriscos ni símbolos de markdown."
-                )
-                comando_ollama = [
-                    "ollama", "run", args.ollama, "--think=false",
-                    f"{prompt_sistema}\n\nPregunta: {pregunta}"
-                ]
-                resultado = subprocess.run(comando_ollama, capture_output=True, text=True)
-                respuesta = re.sub(r'[*#_`]', '', resultado.stdout).strip()
+                try:
+                    respuesta = re.sub(r'[*#_`]', '', consultar_ollama(args.ollama, pregunta)).strip()
+                except Exception as e:
+                    print(f"❌ Error al consultar a Ollama: {e}\n")
+                    continue
 
                 print(f"🤖 Computadora: {respuesta}\n")
 
