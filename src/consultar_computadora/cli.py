@@ -23,6 +23,7 @@ SEGUNDOS_SILENCIO = 1.6
 
 # --- Ollama (API local, solo con la biblioteca estándar) ---
 OLLAMA_KEEP_ALIVE = "30m"      # cuánto queda el modelo en memoria tras la última consulta
+MAX_TOKENS_RESPUESTA = 300     # tope de tokens por respuesta (respuestas habladas cortas)
 MIN_CARACTERES_ORACION = 25    # evita mandar al TTS fragmentos demasiado cortos
 PROMPT_SISTEMA = (
     "Responde en español de forma clara y concisa, en texto plano, "
@@ -133,6 +134,7 @@ def generar_respuesta(modelo, pregunta):
         "stream": True,
         "think": False,
         "keep_alive": OLLAMA_KEEP_ALIVE,
+        "options": {"num_predict": MAX_TOKENS_RESPUESTA},
     }
     with ollama_post("/api/chat", cuerpo) as respuesta:
         for linea in respuesta:
