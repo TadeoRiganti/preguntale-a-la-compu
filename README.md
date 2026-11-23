@@ -24,8 +24,8 @@ Micrófono ──► Whisper base/small/turbo (transcribe tu pregunta)
 1. El programa escucha en bucle fragmentos cortos de audio y los transcribe con un modelo Whisper liviano (`tiny`) buscando la palabra de activación.
 2. Al detectarla, emite un pitido y graba tu pregunta hasta que haces una pausa de silencio.
 3. La pregunta se transcribe con el modelo Whisper que elijas (`base` por defecto).
-4. Se la envía a un modelo local de [Ollama](https://ollama.com) con la instrucción de responder en español, en texto plano y de forma concisa.
-5. [Kokoro TTS](https://github.com/hexgrad/kokoro) lee la respuesta en voz alta y el asistente vuelve a quedar en espera.
+4. Se la envía a un modelo local de [Ollama](https://ollama.com) por su API local, con la instrucción de responder en español, en texto plano y de forma concisa. La respuesta llega en streaming.
+5. [Kokoro TTS](https://github.com/hexgrad/kokoro) la lee en voz alta oración por oración, a medida que llega (mientras reproduce una oración ya sintetiza la siguiente), y el asistente vuelve a quedar en espera.
 ## Requisitos
  
 | Requisito | Detalle |
@@ -33,7 +33,7 @@ Micrófono ──► Whisper base/small/turbo (transcribe tu pregunta)
 | Sistema operativo | Linux basado en Debian/Ubuntu (el instalador usa `apt-get`) |
 | Python | 3.11 o 3.12 (el proyecto declara `>=3.11,<3.13`) |
 | Micrófono y parlantes | Dispositivos de audio de entrada y salida funcionando |
-| [Ollama](https://ollama.com) | Instalado, en el `PATH` y con el servicio corriendo |
+| [Ollama](https://ollama.com) | Instalado y con el servicio corriendo (el programa lo consulta por su API local) |
 | Modelo de Ollama | Por defecto `gemma4:e4b` (ver más abajo) |
 | Internet | Solo en la primera ejecución, para descargar los modelos |
 | Hardware | Funciona en CPU (PyTorch CPU y Whisper en `int8`). Una GPU no es necesaria para Whisper/Kokoro, pero el tiempo de respuesta depende mucho del modelo de Ollama y de tu equipo |
@@ -50,7 +50,7 @@ Seguí las instrucciones oficiales en [ollama.com](https://ollama.com) y despué
 ollama pull gemma4:e4b
 ```
  
-Podés usar cualquier otro modelo que tengas disponible (ver [Opciones](#opciones)). Tené en cuenta que el programa invoca `ollama run <modelo> --think=false`, así que necesitás una versión de Ollama que soporte ese parámetro.
+Podés usar cualquier otro modelo que tengas disponible (ver [Opciones](#opciones)). Tené en cuenta que el programa consulta a Ollama por su API local (por defecto en `http://127.0.0.1:11434`, o la que indique `OLLAMA_HOST`) y le pide que no use modo de razonamiento (`think: false`), así que conviene tener una versión reciente de Ollama.
  
 ### 2. Clonar e instalar
  
@@ -120,6 +120,9 @@ Estos valores están al comienzo de `src/consultar_computadora/cli.py`:
 | `WAKE_WORDS` | Palabras que activan el asistente | `computadora`, `computador`, `compu` |
 | `UMBRAL_SILENCIO` | Volumen por encima del cual se considera que estás hablando | `0.022` |
 | `SEGUNDOS_SILENCIO` | Segundos de silencio que cierran la grabación de la pregunta | `1.6` |
+| `OLLAMA_KEEP_ALIVE` | Cuánto tiempo queda el modelo de Ollama en memoria tras la última consulta | `30m` |
+| `MAX_TOKENS_RESPUESTA` | Tope de tokens por respuesta (si las respuestas se cortan, subilo) | `300` |
+| `MIN_CARACTERES_ORACION` | Largo mínimo de cada fragmento que se manda al TTS: más bajo empieza a hablar antes, pero suena más entrecortado | `25` |
  
 Si instalaste con `uv tool install`, después de editar el código volvé a ejecutar `uv tool install --force .` para que el comando global use tus cambios.
  
@@ -130,11 +133,11 @@ Si instalaste con `uv tool install`, después de editar el código volvé a ejec
 - El micrófono permanece escuchando mientras el programa está abierto, pero solo se procesa el audio localmente y no se guarda ninguna grabación.
 ## Solución de problemas
  
-**`Error: Ollama no está instalado o no se encuentra en el PATH`**
-Instalá Ollama y comprobá que `ollama --version` funcione en la misma terminal.
+**`Error: no se pudo conectar con Ollama`**
+Instalá Ollama y comprobá que el servicio esté corriendo (por defecto escucha en el puerto 11434). Si lo corrés en otro host o puerto, definí la variable `OLLAMA_HOST`.
  
 **La respuesta aparece vacía o falla la consulta**
-Verificá que el servicio de Ollama esté corriendo y que hayas descargado el modelo con `ollama pull <modelo>`. Probá también ejecutar a mano `ollama run <modelo> "hola"`. Si tu versión de Ollama no reconoce `--think=false`, actualizala.
+Verificá que el servicio de Ollama esté corriendo y que hayas descargado el modelo con `ollama pull <modelo>`. Probá también ejecutar a mano `ollama run <modelo> "hola"`. Si tu versión de Ollama es vieja y no reconoce el parámetro `think`, actualizala.
  
 **No detecta "Computadora" o se activa sin querer**
 Hablá cerca del micrófono, con poco ruido de fondo. Ajustá `UMBRAL_SILENCIO` si el micrófono tiene muy poco o demasiado volumen de entrada.
