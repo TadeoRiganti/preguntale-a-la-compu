@@ -2,7 +2,9 @@ import os
 import re
 import json
 import time
+import queue
 import argparse
+import threading
 import warnings
 import urllib.request
 from collections import deque
@@ -165,17 +167,37 @@ def agrupar_oraciones(trozos):
 
 
 def hablar_respuesta(modelo, pregunta, kokoro_pipeline, voz):
-    """Genera la respuesta en streaming y la va diciendo oración por oración.
+    """Genera, sintetiza y reproduce la respuesta en paralelo, oración por oración.
 
-    Devuelve True si se dijo algo.
+    Un hilo consume el streaming de Ollama y sintetiza cada oración con Kokoro mientras
+    el hilo principal reproduce el audio ya listo. Devuelve True si se dijo algo.
     """
+    cola = queue.Queue(maxsize=2)
+    errores = []
+
+    def productor():
+        try:
+            for oracion in agrupar_oraciones(generar_respuesta(modelo, pregunta)):
+                print(oracion, end=" ", flush=True)
+                for _, _, audio in kokoro_pipeline(oracion, voice=voz, speed=1.0):
+                    cola.put(audio)
+        except Exception as e:
+            errores.append(e)
+        finally:
+            cola.put(None)
+
+    hilo = threading.Thread(target=productor, daemon=True)
+    hilo.start()
+
     hablo = False
-    for oracion in agrupar_oraciones(generar_respuesta(modelo, pregunta)):
-        print(oracion, end=" ", flush=True)
-        for _, _, audio in kokoro_pipeline(oracion, voice=voz, speed=1.0):
-            hablo = True
-            sd.play(audio, 24000)
-            sd.wait()
+    while (audio := cola.get()) is not None:
+        hablo = True
+        sd.play(audio, 24000)
+        sd.wait()
+    hilo.join()
+
+    if errores:
+        raise errores[0]
     return hablo
 
 
