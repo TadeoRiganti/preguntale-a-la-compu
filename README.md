@@ -113,16 +113,16 @@ Elegir el modelo Whisper es un compromiso entre velocidad y precisión: `base` e
  
 ## Ajustes finos
  
-Estos valores están al comienzo de `src/consultar_computadora/cli.py`:
+Estos valores son constantes al comienzo de cada módulo de `src/consultar_computadora/` (ver la columna Archivo):
  
-| Constante | Qué controla | Por defecto |
-|---|---|---|
-| `WAKE_WORDS` | Palabras que activan el asistente | `computadora`, `computador`, `compu` |
-| `UMBRAL_SILENCIO` | Volumen por encima del cual se considera que estás hablando | `0.022` |
-| `SEGUNDOS_SILENCIO` | Segundos de silencio que cierran la grabación de la pregunta | `1.6` |
-| `OLLAMA_KEEP_ALIVE` | Cuánto tiempo queda el modelo de Ollama en memoria tras la última consulta | `30m` |
-| `MAX_TOKENS_RESPUESTA` | Tope de tokens por respuesta (si las respuestas se cortan, subilo) | `300` |
-| `MIN_CARACTERES_ORACION` | Largo mínimo de cada fragmento que se manda al TTS: más bajo empieza a hablar antes, pero suena más entrecortado | `25` |
+| Constante | Archivo | Qué controla | Por defecto |
+|---|---|---|---|
+| `WAKE_WORDS` | `cli.py` | Palabras que activan el asistente | `computadora`, `computador`, `compu` |
+| `UMBRAL_SILENCIO` | `audio.py` | Volumen por encima del cual se considera que estás hablando | `0.022` |
+| `SEGUNDOS_SILENCIO` | `audio.py` | Segundos de silencio que cierran la grabación de la pregunta | `1.6` |
+| `OLLAMA_KEEP_ALIVE` | `llm.py` | Cuánto tiempo queda el modelo de Ollama en memoria tras la última consulta | `30m` |
+| `MAX_TOKENS_RESPUESTA` | `llm.py` | Tope de tokens por respuesta (si las respuestas se cortan, subilo) | `300` |
+| `MIN_CARACTERES_ORACION` | `tts.py` | Largo mínimo de cada fragmento que se manda al TTS: más bajo empieza a hablar antes, pero suena más entrecortado | `25` |
  
 Si instalaste con `uv tool install`, después de editar el código volvé a ejecutar `uv tool install --force .` para que el comando global use tus cambios.
  
@@ -168,7 +168,11 @@ Probá un modelo más chico en `--ollama` y mantené el modelo Whisper en `base`
 ├── install.sh                      # Instalador (dependencias del sistema + uv + comando global)
 ├── pyproject.toml                  # Metadatos y dependencias del paquete
 └── src/consultar_computadora/
-    └── cli.py                      # Toda la lógica del asistente
+    ├── audio.py                    # Captura del micrófono, detección de silencio y tono de confirmación
+    ├── cli.py                      # Orquestador: argumentos y bucle principal
+    ├── llm.py                      # Cliente de la API local de Ollama (streaming)
+    ├── stt.py                      # Transcripción con Whisper
+    └── tts.py                      # Corte en oraciones y reproducción con Kokoro
 ```
  
 ## Tecnologías
