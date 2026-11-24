@@ -122,7 +122,7 @@ consultar-computadora --metricas
 
 ```
 ⏱️  Espera 3.91s (silencio 1.60s + 1er audio 2.31s) | total 6.80s
-    STT 0.80s | 1er token 0.40s | 1ª oración 1.10s | 18.2 tok/s (86 tokens)
+    STT 0.80s | 1er token 0.40s | 1ª oración 1.10s | síntesis 1ª oración 0.41s | 18.2 tok/s (86 tokens)
 ```
 
 Los números son un ejemplo. Qué significa cada uno:
@@ -133,6 +133,7 @@ Los números son un ejemplo. Qué significa cada uno:
 - **total:** desde que terminó la grabación hasta que termina de hablar.
 - **STT:** lo que tardó Whisper en transcribir la pregunta.
 - **1er token** y **1ª oración:** lo que tardó Ollama en empezar a responder y en completar la primera oración, medido desde que se le envía la pregunta.
+- **síntesis 1ª oración:** lo que tardó Kokoro en generar el primer audio, desde que la primera oración estuvo lista. Si es la parte más grande de la espera, el cuello de botella es la voz y no el modelo de lenguaje.
 - **tok/s:** velocidad de generación según Ollama.
 - **carga del modelo:** solo aparece si Ollama tuvo que cargar el modelo en memoria (por ejemplo, tras una pausa larga).
 
