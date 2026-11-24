@@ -32,7 +32,7 @@ def hablar_respuesta(oraciones, kokoro_pipeline, voz, metricas=None):
     Un hilo consume las oraciones (por ejemplo, las del streaming de Ollama) y las sintetiza
     con Kokoro mientras el hilo principal reproduce el audio ya listo.
     Devuelve True si se dijo algo. Si se pasa `metricas`, registra cuándo está lista
-    la primera oración y cuándo empieza a sonar el primer audio.
+    la primera oración, cuándo Kokoro entrega su primer audio y cuándo empieza a sonar.
     """
     cola = queue.Queue(maxsize=2)
     errores = []
@@ -44,6 +44,8 @@ def hablar_respuesta(oraciones, kokoro_pipeline, voz, metricas=None):
                     metricas.marcar("primera_oracion")
                 print(oracion, end=" ", flush=True)
                 for _, _, audio in kokoro_pipeline(oracion, voice=voz, speed=1.0):
+                    if metricas:
+                        metricas.marcar("primera_sintesis")
                     cola.put(audio)
         except Exception as e:
             errores.append(e)

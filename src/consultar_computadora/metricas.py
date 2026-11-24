@@ -53,6 +53,7 @@ class Metricas:
             f"STT {_fmt(self.desde('stt_fin'))}",
             f"1er token {_fmt(self.desde('primer_token', 'llm_inicio'))}",
             f"1ª oración {_fmt(self.desde('primera_oracion', 'llm_inicio'))}",
+            f"síntesis 1ª oración {_fmt(self.desde('primera_sintesis', 'primera_oracion'))}",
         ]
         partes += self._partes_ollama()
         return linea + "\n    " + " | ".join(partes)
