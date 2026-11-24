@@ -46,8 +46,11 @@ def precargar_ollama(modelo):
         pass
 
 
-def generar_respuesta(modelo, pregunta):
-    """Pide la respuesta en streaming y va entregando trozos de texto a medida que llegan."""
+def generar_respuesta(modelo, pregunta, metricas=None):
+    """Pide la respuesta en streaming y va entregando trozos de texto a medida que llegan.
+
+    Si se pasa `metricas`, registra cuándo llega el primer token y las estadísticas de Ollama.
+    """
     cuerpo = {
         "model": modelo,
         "messages": [
@@ -59,6 +62,8 @@ def generar_respuesta(modelo, pregunta):
         "keep_alive": OLLAMA_KEEP_ALIVE,
         "options": {"num_predict": MAX_TOKENS_RESPUESTA},
     }
+    if metricas:
+        metricas.marcar("llm_inicio")
     with ollama_post("/api/chat", cuerpo) as respuesta:
         for linea in respuesta:
             if not linea.strip():
@@ -68,6 +73,10 @@ def generar_respuesta(modelo, pregunta):
                 raise RuntimeError(dato["error"])
             trozo = dato.get("message", {}).get("content", "")
             if trozo:
+                if metricas:
+                    metricas.marcar("primer_token")
                 yield trozo
             if dato.get("done"):
+                if metricas:
+                    metricas.registrar_ollama(dato)
                 break

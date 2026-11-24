@@ -15,10 +15,25 @@ class Metricas:
     def __init__(self):
         self.t0 = time.perf_counter()
         self.marcas = {}
+        self.ollama = {}  # estadísticas del último mensaje del streaming de Ollama
 
     def marcar(self, nombre):
         """Guarda el instante de un hito (solo la primera vez que se marca)."""
         self.marcas.setdefault(nombre, time.perf_counter())
+
+    def registrar_ollama(self, dato):
+        """Guarda las estadísticas que Ollama manda en el último mensaje del streaming."""
+        self.ollama = {k: dato.get(k) for k in ("eval_count", "eval_duration", "load_duration")}
+
+    def _partes_ollama(self):
+        partes = []
+        tokens, duracion = self.ollama.get("eval_count"), self.ollama.get("eval_duration")
+        if tokens and duracion:
+            partes.append(f"{tokens / (duracion / 1e9):.1f} tok/s ({tokens} tokens)")
+        carga = (self.ollama.get("load_duration") or 0) / 1e9
+        if carga > 0.1:
+            partes.append(f"carga del modelo {carga:.2f}s")
+        return partes
 
     def desde(self, hito, origen=None):
         """Segundos entre dos hitos (por defecto, desde el inicio); None si falta alguno."""
@@ -30,5 +45,11 @@ class Metricas:
 
     def resumen(self, silencio):
         """`silencio` es la espera configurada para dar por terminada la pregunta (SEGUNDOS_SILENCIO)."""
-        return (f"⏱️  silencio {silencio:.2f}s | STT {_fmt(self.desde('stt_fin'))} "
-                f"| total {_fmt(self.desde('fin'))}")
+        partes = [
+            f"silencio {silencio:.2f}s",
+            f"STT {_fmt(self.desde('stt_fin'))}",
+            f"1er token {_fmt(self.desde('primer_token', 'llm_inicio'))}",
+        ]
+        partes += self._partes_ollama()
+        partes.append(f"total {_fmt(self.desde('fin'))}")
+        return "⏱️  " + " | ".join(partes)

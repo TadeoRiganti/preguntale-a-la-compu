@@ -84,7 +84,7 @@ def main():
                 print("🤖 Computadora: ", end="", flush=True)
 
                 try:
-                    oraciones = agrupar_oraciones(generar_respuesta(args.ollama, pregunta))
+                    oraciones = agrupar_oraciones(generar_respuesta(args.ollama, pregunta, metricas))
                     hablo = hablar_respuesta(oraciones, kokoro_pipeline, args.voz)
                     if metricas:
                         metricas.marcar("fin")
