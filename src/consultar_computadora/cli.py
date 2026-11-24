@@ -8,6 +8,7 @@ from kokoro import KPipeline
 
 from .audio import SEGUNDOS_SILENCIO, emitir_tono, grabar_frase
 from .llm import OLLAMA_URL, generar_respuesta, ollama_disponible, precargar_ollama
+from .metricas import Metricas
 from .stt import cargar_whisper, transcribir_activacion, transcribir_pregunta
 from .tts import agrupar_oraciones, hablar_respuesta
 
@@ -31,6 +32,11 @@ def main():
         "-v", "--voz",
         default="ef_dora",
         help="Voz en español de Kokoro: ef_dora, em_alex, em_santa (default: ef_dora)"
+    )
+    parser.add_argument(
+        "--metricas",
+        action="store_true",
+        help="Muestra los tiempos de cada etapa después de cada respuesta"
     )
     args = parser.parse_args()
 
@@ -64,7 +70,10 @@ def main():
                 print("🎤 Ahora te estoy escuchando... ¿Qué querías saber?")
 
                 audio_pregunta = grabar_frase(segundos_corte=SEGUNDOS_SILENCIO)
+                metricas = Metricas() if args.metricas else None
                 pregunta = transcribir_pregunta(whisper_main, audio_pregunta)
+                if metricas:
+                    metricas.marcar("stt_fin")
 
                 if not pregunta:
                     emitir_tono(440, 0.15)
@@ -77,7 +86,11 @@ def main():
                 try:
                     oraciones = agrupar_oraciones(generar_respuesta(args.ollama, pregunta))
                     hablo = hablar_respuesta(oraciones, kokoro_pipeline, args.voz)
+                    if metricas:
+                        metricas.marcar("fin")
                     print("\n" if hablo else "(respuesta vacía)\n")
+                    if metricas and hablo:
+                        print(metricas.resumen(SEGUNDOS_SILENCIO) + "\n")
                 except Exception as e:
                     print(f"\n❌ Error al generar la respuesta: {e}\n")
 
