@@ -26,12 +26,13 @@ def agrupar_oraciones(trozos):
         yield resto
 
 
-def hablar_respuesta(oraciones, kokoro_pipeline, voz):
+def hablar_respuesta(oraciones, kokoro_pipeline, voz, metricas=None):
     """Sintetiza y reproduce las oraciones en paralelo, a medida que van llegando.
 
     Un hilo consume las oraciones (por ejemplo, las del streaming de Ollama) y las sintetiza
     con Kokoro mientras el hilo principal reproduce el audio ya listo.
-    Devuelve True si se dijo algo.
+    Devuelve True si se dijo algo. Si se pasa `metricas`, registra cuándo está lista
+    la primera oración y cuándo empieza a sonar el primer audio.
     """
     cola = queue.Queue(maxsize=2)
     errores = []
@@ -39,6 +40,8 @@ def hablar_respuesta(oraciones, kokoro_pipeline, voz):
     def productor():
         try:
             for oracion in oraciones:
+                if metricas:
+                    metricas.marcar("primera_oracion")
                 print(oracion, end=" ", flush=True)
                 for _, _, audio in kokoro_pipeline(oracion, voice=voz, speed=1.0):
                     cola.put(audio)
@@ -53,6 +56,8 @@ def hablar_respuesta(oraciones, kokoro_pipeline, voz):
     hablo = False
     while (audio := cola.get()) is not None:
         hablo = True
+        if metricas:
+            metricas.marcar("primer_audio")
         sd.play(audio, 24000)
         sd.wait()
     hilo.join()

@@ -85,7 +85,7 @@ def main():
 
                 try:
                     oraciones = agrupar_oraciones(generar_respuesta(args.ollama, pregunta, metricas))
-                    hablo = hablar_respuesta(oraciones, kokoro_pipeline, args.voz)
+                    hablo = hablar_respuesta(oraciones, kokoro_pipeline, args.voz, metricas)
                     if metricas:
                         metricas.marcar("fin")
                     print("\n" if hablo else "(respuesta vacía)\n")

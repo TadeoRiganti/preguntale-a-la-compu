@@ -45,11 +45,14 @@ class Metricas:
 
     def resumen(self, silencio):
         """`silencio` es la espera configurada para dar por terminada la pregunta (SEGUNDOS_SILENCIO)."""
+        audio = self.desde("primer_audio")
+        espera = None if audio is None else silencio + audio
+        linea = (f"⏱️  Espera {_fmt(espera)} (silencio {silencio:.2f}s + 1er audio {_fmt(audio)}) "
+                 f"| total {_fmt(self.desde('fin'))}")
         partes = [
-            f"silencio {silencio:.2f}s",
             f"STT {_fmt(self.desde('stt_fin'))}",
             f"1er token {_fmt(self.desde('primer_token', 'llm_inicio'))}",
+            f"1ª oración {_fmt(self.desde('primera_oracion', 'llm_inicio'))}",
         ]
         partes += self._partes_ollama()
-        partes.append(f"total {_fmt(self.desde('fin'))}")
-        return "⏱️  " + " | ".join(partes)
+        return linea + "\n    " + " | ".join(partes)
