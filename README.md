@@ -95,6 +95,7 @@ Si no se entiende la pregunta, suena un tono grave y vuelve a la espera. Para sa
 | `-m`, `--modelo` | Modelo Whisper para transcribir la pregunta: `base`, `small` o `turbo` | `base` |
 | `--ollama` | Modelo de Ollama a utilizar | `gemma4:e4b` |
 | `-v`, `--voz` | Voz en español de Kokoro: `ef_dora`, `em_alex`, `em_santa` | `ef_dora` |
+| `--metricas` | Muestra, después de cada respuesta, cuánto tardó cada etapa | desactivado |
  
 Ejemplos:
  
@@ -110,6 +111,32 @@ consultar-computadora -m turbo -v ef_dora
 ```
  
 Elegir el modelo Whisper es un compromiso entre velocidad y precisión: `base` es el más rápido, `small` equilibra ambos y `turbo` es el más preciso pero el que más recursos consume.
+
+## Medir la latencia
+
+Con `--metricas` el programa imprime, después de cada respuesta, cuánto tardó cada etapa:
+
+```bash
+consultar-computadora --metricas
+```
+
+```
+⏱️  Espera 3.91s (silencio 1.60s + 1er audio 2.31s) | total 6.80s
+    STT 0.80s | 1er token 0.40s | 1ª oración 1.10s | 18.2 tok/s (86 tokens)
+```
+
+Los números son un ejemplo. Qué significa cada uno:
+
+- **Espera:** lo que pasa desde que dejás de hablar hasta que empieza a sonar la respuesta (`silencio` + `1er audio`). Es la latencia que realmente sentís.
+- **silencio:** el valor de `SEGUNDOS_SILENCIO`. No se mide: es el tiempo que el asistente espera callado para dar por terminada tu pregunta.
+- **1er audio:** desde que terminó la grabación hasta que suena la primera oración (incluye transcripción, Ollama y la síntesis de esa oración).
+- **total:** desde que terminó la grabación hasta que termina de hablar.
+- **STT:** lo que tardó Whisper en transcribir la pregunta.
+- **1er token** y **1ª oración:** lo que tardó Ollama en empezar a responder y en completar la primera oración, medido desde que se le envía la pregunta.
+- **tok/s:** velocidad de generación según Ollama.
+- **carga del modelo:** solo aparece si Ollama tuvo que cargar el modelo en memoria (por ejemplo, tras una pausa larga).
+
+Las métricas solo se muestran en la consola; el asistente no las lee en voz alta.
  
 ## Ajustes finos
  
@@ -171,6 +198,7 @@ Probá un modelo más chico en `--ollama` y mantené el modelo Whisper en `base`
     ├── audio.py                    # Captura del micrófono, detección de silencio y tono de confirmación
     ├── cli.py                      # Orquestador: argumentos y bucle principal
     ├── llm.py                      # Cliente de la API local de Ollama (streaming)
+    ├── metricas.py                 # Cronómetro opcional (--metricas)
     ├── stt.py                      # Transcripción con Whisper
     └── tts.py                      # Corte en oraciones y reproducción con Kokoro
 ```
