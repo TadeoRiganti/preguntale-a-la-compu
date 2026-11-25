@@ -6,13 +6,12 @@ warnings.filterwarnings("ignore")
 
 from kokoro import KPipeline
 
-from .audio import SEGUNDOS_SILENCIO, emitir_tono, grabar_frase
+from .audio import (ACTIVACION_MAX_SEGUNDOS, ACTIVACION_SEGUNDOS_SILENCIO, SEGUNDOS_SILENCIO,
+                    emitir_tono, grabar_frase)
 from .llm import OLLAMA_URL, generar_respuesta, ollama_disponible, precargar_ollama
 from .metricas import Metricas
-from .stt import cargar_whisper, transcribir_activacion, transcribir_pregunta
+from .stt import cargar_whisper, palabras_detectadas, transcribir_activacion, transcribir_pregunta
 from .tts import agrupar_oraciones, hablar_respuesta
-
-WAKE_WORDS = ["computadora", "computador", "compu"]
 
 
 def main():
@@ -62,10 +61,11 @@ def main():
 
     try:
         while True:
-            audio_wake = grabar_frase(max_segundos=2.2, segundos_corte=0.7)
+            audio_wake = grabar_frase(max_segundos=ACTIVACION_MAX_SEGUNDOS,
+                                      segundos_corte=ACTIVACION_SEGUNDOS_SILENCIO)
             texto_detectado = transcribir_activacion(whisper_wake, audio_wake)
 
-            if any(w in texto_detectado for w in WAKE_WORDS):
+            if palabras_detectadas(texto_detectado):
                 emitir_tono(880, 0.12)
                 print("🎤 Ahora te estoy escuchando... ¿Qué querías saber?")
 

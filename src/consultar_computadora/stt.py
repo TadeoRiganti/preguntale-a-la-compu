@@ -1,6 +1,8 @@
 """Reconocimiento de voz con faster-whisper."""
 from faster_whisper import WhisperModel
 
+WAKE_WORDS = ["computadora", "computador", "compu"]
+
 
 def cargar_whisper(nombre_modelo):
     """Intenta cargar desde caché local; si no existe, lo descarga."""
@@ -9,6 +11,11 @@ def cargar_whisper(nombre_modelo):
     except Exception:
         print(f"📥 Descargando modelo Whisper '{nombre_modelo}' por única vez...")
         return WhisperModel(nombre_modelo, device="cpu", compute_type="int8")
+
+
+def palabras_detectadas(texto, palabras=None):
+    """Devuelve las palabras de activación que aparecen en el texto (ya en minúsculas)."""
+    return [w for w in (WAKE_WORDS if palabras is None else palabras) if w in texto]
 
 
 def transcribir_activacion(modelo, audio):

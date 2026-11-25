@@ -6,6 +6,8 @@ import sounddevice as sd
 SAMPLE_RATE = 16000
 UMBRAL_SILENCIO = 0.022
 SEGUNDOS_SILENCIO = 1.6
+ACTIVACION_MAX_SEGUNDOS = 2.2       # audio máximo con el que se busca la palabra de activación
+ACTIVACION_SEGUNDOS_SILENCIO = 0.7  # silencio que cierra esa grabación
 
 
 def emitir_tono(frecuencia=880, duracion=0.12):

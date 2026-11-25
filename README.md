@@ -145,9 +145,11 @@ Estos valores son constantes al comienzo de cada módulo de `src/consultar_compu
  
 | Constante | Archivo | Qué controla | Por defecto |
 |---|---|---|---|
-| `WAKE_WORDS` | `cli.py` | Palabras que activan el asistente | `computadora`, `computador`, `compu` |
+| `WAKE_WORDS` | `stt.py` | Palabras que activan el asistente | `computadora`, `computador`, `compu` |
 | `UMBRAL_SILENCIO` | `audio.py` | Volumen por encima del cual se considera que estás hablando | `0.022` |
 | `SEGUNDOS_SILENCIO` | `audio.py` | Segundos de silencio que cierran la grabación de la pregunta | `1.6` |
+| `ACTIVACION_MAX_SEGUNDOS` | `audio.py` | Duración máxima del audio con el que se busca la palabra de activación | `2.2` |
+| `ACTIVACION_SEGUNDOS_SILENCIO` | `audio.py` | Segundos de silencio que cierran esa grabación | `0.7` |
 | `OLLAMA_KEEP_ALIVE` | `llm.py` | Cuánto tiempo queda el modelo de Ollama en memoria tras la última consulta | `30m` |
 | `MAX_TOKENS_RESPUESTA` | `llm.py` | Tope de tokens por respuesta (si las respuestas se cortan, subilo) | `300` |
 | `MIN_CARACTERES_ORACION` | `tts.py` | Largo mínimo de cada fragmento que se manda al TTS: más bajo empieza a hablar antes, pero suena más entrecortado | `25` |
@@ -200,7 +202,7 @@ Probá un modelo más chico en `--ollama` y mantené el modelo Whisper en `base`
     ├── cli.py                      # Orquestador: argumentos y bucle principal
     ├── llm.py                      # Cliente de la API local de Ollama (streaming)
     ├── metricas.py                 # Cronómetro opcional (--metricas)
-    ├── stt.py                      # Transcripción con Whisper
+    ├── stt.py                      # Transcripción con Whisper y palabras de activación
     └── tts.py                      # Corte en oraciones y reproducción con Kokoro
 ```
  
