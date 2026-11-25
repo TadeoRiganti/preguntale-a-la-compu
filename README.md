@@ -95,6 +95,7 @@ Si no se entiende la pregunta, suena un tono grave y vuelve a la espera. Para sa
 | `-m`, `--modelo` | Modelo Whisper para transcribir la pregunta: `base`, `small` o `turbo` | `base` |
 | `--ollama` | Modelo de Ollama a utilizar | `gemma4:e4b` |
 | `-v`, `--voz` | Voz en español de Kokoro: `ef_dora`, `em_alex`, `em_santa` | `ef_dora` |
+| `-p`, `--palabra` | Palabra o frase de activación. Reemplaza a las predeterminadas, vale solo para esa ejecución y se puede repetir. Las frases van entre comillas | `computadora`, `computador`, `compu` |
 | `--metricas` | Muestra, después de cada respuesta, cuánto tardó cada etapa | desactivado |
  
 Ejemplos:
@@ -139,13 +140,68 @@ Los números son un ejemplo. Qué significa cada uno:
 
 Las métricas solo se muestran en la consola; el asistente no las lee en voz alta.
  
+## Elegir la palabra de activación
+
+Con `--palabra` (o `-p`) usás otra palabra o frase en lugar de "computadora", solo durante esa ejecución:
+
+```bash
+consultar-computadora --palabra tutuca
+consultar-computadora --palabra "oye computadora" --palabra tutuca
+```
+
+- **Reemplaza a las predeterminadas:** si pasás `--palabra`, ya no activan "computadora", "computador" ni "compu".
+- **Las frases van entre comillas**, para que el shell las pase como un solo argumento. En un alias hay que combinar los dos tipos de comillas: `alias asistente='consultar-computadora --palabra "oye computadora"'`.
+- **La comparación ignora mayúsculas, tildes y puntuación:** "Oye, computadora." coincide con `oye computadora`.
+- **La comparación busca la palabra dentro del texto**, por eso `compu` también activa con "computación". Conviene elegir palabras poco comunes en el habla cotidiana.
+- El audio con el que se busca la palabra se corta a 2,2 s (`ACTIVACION_MAX_SEGUNDOS`): una frase larga dicha con calma puede no entrar entera.
+
+## Probar palabras de activación
+
+El subcomando `transcribir` muestra en vivo lo que capta el micrófono, con el mismo audio, modelo (`tiny`) y detección de palabras que usa el asistente mientras espera la palabra. Sirve para ver qué entiende Whisper y por qué se activa (o no), antes de usar una palabra en el asistente:
+
+```bash
+consultar-computadora transcribir --palabra tutuca
+```
+
+```
+[1] 1.8 s de audio · transcripción 0.31s
+    Texto: "tutuca."
+    ✅ Activaría el asistente: "tutuca" ← tutuca
+
+[2] 2.0 s de audio · transcripción 0.29s
+    Texto: "tu tuca"
+    ❌ No activaría el asistente
+
+[3] 1.6 s de audio · transcripción 0.27s
+    Texto: "tutuka"
+    ❌ No activaría el asistente
+
+📊 Resumen: 3 intentos en modo activación
+   Activó el asistente: 1 de 3 (33 %)
+   Lo que entendió Whisper cuando no activó:
+     "tu tuca" ×1
+     "tutuka" ×1
+
+👋 Listo.
+```
+
+Al salir con `Ctrl+C` muestra cuántas veces activó y qué entendió Whisper cuando no, lo que sirve para decidir si una palabra es confiable. Si no pasás `--palabra`, prueba las palabras predeterminadas. Después de la flecha (`←`) se ven las palabras de activación que coincidieron con cada palabra del texto: el ejemplo `"computación" ← compu` delata un falso positivo.
+
+| Bandera | Descripción | Valor por defecto |
+|---|---|---|
+| `--modo` | `activacion` (audio corto y modelo liviano, como al esperar la palabra) o `pregunta` (como al grabar la pregunta) | `activacion` |
+| `-m`, `--modelo` | Modelo Whisper: `tiny`, `base`, `small` o `turbo` | `tiny` en `activacion`, `base` en `pregunta` |
+| `-p`, `--palabra` | Palabra o frase a probar (reemplaza a las predeterminadas; se puede repetir) | las predeterminadas |
+
+Las banderas del asistente (`--ollama`, `--voz`, `--metricas`...) no se aplican a `transcribir`. `--palabra` funciona antes o después del subcomando; `--modo` y `-m` van después de `transcribir` (antes, `-m` sería el modelo Whisper del asistente).
+
 ## Ajustes finos
  
 Estos valores son constantes al comienzo de cada módulo de `src/consultar_computadora/` (ver la columna Archivo):
  
 | Constante | Archivo | Qué controla | Por defecto |
 |---|---|---|---|
-| `WAKE_WORDS` | `stt.py` | Palabras que activan el asistente | `computadora`, `computador`, `compu` |
+| `WAKE_WORDS` | `stt.py` | Palabras que activan el asistente (se reemplazan con `--palabra`) | `computadora`, `computador`, `compu` |
 | `UMBRAL_SILENCIO` | `audio.py` | Volumen por encima del cual se considera que estás hablando | `0.022` |
 | `SEGUNDOS_SILENCIO` | `audio.py` | Segundos de silencio que cierran la grabación de la pregunta | `1.6` |
 | `ACTIVACION_MAX_SEGUNDOS` | `audio.py` | Duración máxima del audio con el que se busca la palabra de activación | `2.2` |
@@ -203,6 +259,7 @@ Probá un modelo más chico en `--ollama` y mantené el modelo Whisper en `base`
     ├── llm.py                      # Cliente de la API local de Ollama (streaming)
     ├── metricas.py                 # Cronómetro opcional (--metricas)
     ├── stt.py                      # Transcripción con Whisper y palabras de activación
+    ├── transcribir.py              # Subcomando de depuración: transcribir
     └── tts.py                      # Corte en oraciones y reproducción con Kokoro
 ```
  
