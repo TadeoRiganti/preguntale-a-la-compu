@@ -1,4 +1,7 @@
 """Reconocimiento de voz con faster-whisper."""
+import re
+import unicodedata
+
 from faster_whisper import WhisperModel
 
 WAKE_WORDS = ["computadora", "computador", "compu"]
@@ -13,9 +16,20 @@ def cargar_whisper(nombre_modelo):
         return WhisperModel(nombre_modelo, device="cpu", compute_type="int8")
 
 
+def normalizar(texto):
+    """Minúsculas, sin tildes ni puntuación y con los espacios colapsados (para comparar textos)."""
+    sin_tildes = "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
+    return " ".join(re.sub(r"[^\w\s]|_", " ", sin_tildes.lower()).split())
+
+
 def palabras_detectadas(texto, palabras=None):
-    """Devuelve las palabras de activación que aparecen en el texto (ya en minúsculas)."""
-    return [w for w in (WAKE_WORDS if palabras is None else palabras) if w in texto]
+    """Devuelve las palabras o frases de activación que aparecen en el texto.
+
+    Compara sin distinguir mayúsculas, tildes ni puntuación: "Oye, computadora." coincide con "oye computadora".
+    """
+    texto = normalizar(texto)
+    candidatas = WAKE_WORDS if palabras is None else palabras
+    return [w for w in candidatas if (n := normalizar(w)) and n in texto]
 
 
 def transcribir_activacion(modelo, audio):
