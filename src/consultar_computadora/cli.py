@@ -10,7 +10,8 @@ from .audio import (ACTIVACION_MAX_SEGUNDOS, ACTIVACION_SEGUNDOS_SILENCIO, SEGUN
                     emitir_tono, grabar_frase)
 from .llm import OLLAMA_URL, generar_respuesta, ollama_disponible, precargar_ollama
 from .metricas import Metricas
-from .stt import cargar_whisper, palabras_detectadas, transcribir_activacion, transcribir_pregunta
+from .stt import (cargar_whisper, palabras_detectadas, resolver_palabras, transcribir_activacion,
+                  transcribir_pregunta)
 from .tts import agrupar_oraciones, hablar_respuesta
 
 
@@ -37,7 +38,18 @@ def main():
         action="store_true",
         help="Muestra los tiempos de cada etapa después de cada respuesta"
     )
+    parser.add_argument(
+        "-p", "--palabra",
+        action="append",
+        help="Palabra o frase de activación (reemplaza a las predeterminadas; se puede repetir; "
+             "las frases van entre comillas)"
+    )
     args = parser.parse_args()
+    try:
+        palabras = resolver_palabras(args.palabra)
+    except ValueError as e:
+        parser.error(str(e))
+    decir = " o ".join(f"'{p}'" for p in palabras)
 
     if not ollama_disponible():
         print(f"❌ Error: no se pudo conectar con Ollama en {OLLAMA_URL}. "
@@ -57,7 +69,7 @@ def main():
         return
 
     print(f"\n🟢 La computadora está activa (Whisper: {args.modelo} | Ollama: {args.ollama}).")
-    print("   Di 'Computadora' para preguntar (Ctrl+C para salir).\n")
+    print(f"   Di {decir} para preguntar (Ctrl+C para salir).\n")
 
     try:
         while True:
@@ -65,13 +77,13 @@ def main():
                                       segundos_corte=ACTIVACION_SEGUNDOS_SILENCIO)
             texto_detectado = transcribir_activacion(whisper_wake, audio_wake)
 
-            if palabras_detectadas(texto_detectado):
+            if palabras_detectadas(texto_detectado, palabras):
                 emitir_tono(880, 0.12)
                 print("🎤 Ahora te estoy escuchando... ¿Qué querías saber?")
 
                 audio_pregunta = grabar_frase(segundos_corte=SEGUNDOS_SILENCIO)
                 metricas = Metricas() if args.metricas else None
-                pregunta = transcribir_pregunta(whisper_main, audio_pregunta)
+                pregunta = transcribir_pregunta(whisper_main, audio_pregunta, palabras[0])
                 if metricas:
                     metricas.marcar("stt_fin")
 
@@ -95,7 +107,7 @@ def main():
                     print(f"\n❌ Error al generar la respuesta: {e}\n")
 
                 time.sleep(0.4)
-                print("🟢 Esperando 'Computadora'...")
+                print(f"🟢 Esperando {decir}...")
 
     except KeyboardInterrupt:
         print("\n👋 Ya apagué mis oídos!")

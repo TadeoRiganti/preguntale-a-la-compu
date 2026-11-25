@@ -32,20 +32,33 @@ def palabras_detectadas(texto, palabras=None):
     return [w for w in candidatas if (n := normalizar(w)) and n in texto]
 
 
+def resolver_palabras(candidatas):
+    """Palabras de activación a usar: las que pidió el usuario (sin vacías) o las predeterminadas."""
+    if not candidatas:
+        return list(WAKE_WORDS)
+    palabras = [p.strip() for p in candidatas if normalizar(p)]
+    if not palabras:
+        raise ValueError("la palabra de activación no puede estar vacía")
+    return palabras
+
+
 def transcribir_activacion(modelo, audio):
     """Transcribe un fragmento corto para buscar la palabra de activación (rápido, beam_size=1)."""
     segs, _ = modelo.transcribe(audio, language="es", beam_size=1, vad_filter=True)
     return " ".join([s.text for s in segs]).lower().strip()
 
 
-def transcribir_pregunta(modelo, audio):
-    """Transcribe la pregunta del usuario (más preciso, beam_size=5)."""
+def transcribir_pregunta(modelo, audio, palabra="Computadora"):
+    """Transcribe la pregunta del usuario (más preciso, beam_size=5).
+
+    `palabra` se usa en el texto de contexto que se le da a Whisper (initial_prompt).
+    """
     segs, _ = modelo.transcribe(
         audio,
         language="es",
         beam_size=5,
         vad_filter=True,
         vad_parameters=dict(threshold=0.35, min_silence_duration_ms=250, speech_pad_ms=400),
-        initial_prompt="Computadora, esta es una consulta en español."
+        initial_prompt=f"{palabra.capitalize()}, esta es una consulta en español."
     )
     return " ".join([s.text for s in segs]).strip()
