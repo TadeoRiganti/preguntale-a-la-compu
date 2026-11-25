@@ -5,6 +5,7 @@ Whisper y si el texto activaría el asistente.
 """
 import re
 import time
+from collections import Counter
 
 from .audio import (ACTIVACION_MAX_SEGUNDOS, ACTIVACION_SEGUNDOS_SILENCIO, SAMPLE_RATE,
                     SEGUNDOS_SILENCIO, grabar_frase)
@@ -48,6 +49,21 @@ def describir_coincidencias(texto, coincidencias):
     partes += [f'frase "{w}"' for w in coincidencias if " " in normalizar(w)]
     return "; ".join(partes)
 
+
+def imprimir_resumen(n, palabras, activaciones, aciertos, fallidos):
+    """Resumen de la sesión en modo activación: cuántas veces activó y qué entendió Whisper cuando no."""
+    print(f"\n📊 Resumen: {n} {'intento' if n == 1 else 'intentos'} en modo activación")
+    print(f"   Activó el asistente: {activaciones} de {n} ({round(100 * activaciones / n)} %)")
+    if len(palabras) > 1:
+        for palabra in palabras:
+            veces = aciertos[palabra]
+            print(f'   "{palabra}": {veces} {"vez" if veces == 1 else "veces"}')
+    if fallidos:
+        print("   Lo que entendió Whisper cuando no activó:")
+        for texto, veces in fallidos.most_common():
+            print(f'     "{texto}" ×{veces}')
+
+
 def ejecutar(args, palabras):
     nombre_modelo = args.modelo_stt or ("tiny" if args.modo == "activacion" else "base")
 
@@ -60,6 +76,9 @@ def ejecutar(args, palabras):
     print()
 
     n = 0
+    activaciones = 0
+    aciertos = Counter()  # veces que coincidió cada palabra
+    fallidos = Counter()  # lo que entendió Whisper cuando no activó
     try:
         while True:
             if args.modo == "activacion":
@@ -85,10 +104,15 @@ def ejecutar(args, palabras):
             if args.modo == "activacion":
                 coincidencias = palabras_detectadas(texto, palabras)
                 if coincidencias:
+                    activaciones += 1
+                    aciertos.update(coincidencias)
                     print(f"    ✅ Activaría el asistente: {describir_coincidencias(texto, coincidencias)}")
                 else:
+                    fallidos[texto or "(sin texto)"] += 1
                     print("    ❌ No activaría el asistente")
             print()
 
     except KeyboardInterrupt:
+        if args.modo == "activacion" and n:
+            imprimir_resumen(n, palabras, activaciones, aciertos, fallidos)
         print("\n👋 Listo.")
