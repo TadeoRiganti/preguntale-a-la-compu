@@ -4,8 +4,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-from kokoro import KPipeline
-
+from . import transcribir
 from .audio import (ACTIVACION_MAX_SEGUNDOS, ACTIVACION_SEGUNDOS_SILENCIO, SEGUNDOS_SILENCIO,
                     emitir_tono, grabar_frase)
 from .llm import OLLAMA_URL, generar_respuesta, ollama_disponible, precargar_ollama
@@ -16,7 +15,10 @@ from .tts import agrupar_oraciones, hablar_respuesta
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Asistente continuo activado por voz ('Computadora')")
+    parser = argparse.ArgumentParser(
+        description="Asistente continuo activado por voz ('Computadora')",
+        usage="%(prog)s [opciones]\n       %(prog)s transcribir [opciones]",
+    )
     parser.add_argument(
         "-m", "--modelo",
         choices=["base", "small", "turbo"],
@@ -44,11 +46,25 @@ def main():
         help="Palabra o frase de activación (reemplaza a las predeterminadas; se puede repetir; "
              "las frases van entre comillas)"
     )
+    transcribir.agregar_argumentos(
+        parser.add_subparsers(dest="comando", metavar="comando").add_parser(
+            "transcribir",
+            help="Transcribe en vivo lo que capta el micrófono (para probar palabras de activación)",
+        )
+    )
     args = parser.parse_args()
+    candidatas = args.palabra
+    if args.comando == "transcribir":
+        candidatas = args.palabras_prueba or args.palabra  # --palabra vale antes o después del subcomando
     try:
-        palabras = resolver_palabras(args.palabra)
+        palabras = resolver_palabras(candidatas)
     except ValueError as e:
         parser.error(str(e))
+
+    if args.comando == "transcribir":
+        transcribir.ejecutar(args, palabras)
+        return
+
     decir = " o ".join(f"'{p}'" for p in palabras)
 
     if not ollama_disponible():
@@ -59,6 +75,7 @@ def main():
     print("Cargando modelos en memoria...")
     whisper_wake = cargar_whisper("tiny")
     whisper_main = whisper_wake if args.modelo == "tiny" else cargar_whisper(args.modelo)
+    from kokoro import KPipeline  # acá y no arriba: 'transcribir' no necesita cargar torch
     kokoro_pipeline = KPipeline(lang_code='e', repo_id='hexgrad/Kokoro-82M')
 
     try:
