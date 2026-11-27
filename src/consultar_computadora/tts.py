@@ -32,13 +32,21 @@ def agrupar_oraciones(trozos):
             yield resto
 
 
-def hablar_respuesta(oraciones, kokoro_pipeline, voz, metricas=None):
+def crear_sintetizador(kokoro_pipeline, voz):
+    """Devuelve una función que convierte una oración en fragmentos (audio, frecuencia de muestreo)."""
+    def sintetizar(oracion):
+        for _, _, audio in kokoro_pipeline(oracion, voice=voz, speed=1.0):
+            yield audio, 24000
+    return sintetizar
+
+
+def hablar_respuesta(oraciones, sintetizar, metricas=None):
     """Sintetiza y reproduce las oraciones en paralelo, a medida que van llegando.
 
     Un hilo consume las oraciones (por ejemplo, las del streaming de Ollama) y las sintetiza
-    con Kokoro mientras el hilo principal reproduce el audio ya listo.
+    con `sintetizar` mientras el hilo principal reproduce el audio ya listo.
     Devuelve True si se dijo algo. Si se pasa `metricas`, registra cuándo está lista
-    la primera oración, cuándo Kokoro entrega su primer audio y cuándo empieza a sonar.
+    la primera oración, cuándo se obtiene su primer audio y cuándo empieza a sonar.
 
     Si se interrumpe (por ejemplo con Ctrl+C), frena el audio, le avisa al hilo de síntesis para que
     se detenga y vuelve a lanzar la interrupción sin esperar a ese hilo. Kokoro no se puede cortar
@@ -48,11 +56,11 @@ def hablar_respuesta(oraciones, kokoro_pipeline, voz, metricas=None):
     errores = []
     cancelado = threading.Event()
 
-    def encolar(audio):
-        """Pone el audio en la cola. Devuelve False si se canceló mientras esperaba lugar."""
+    def encolar(fragmento):
+        """Pone el fragmento en la cola. Devuelve False si se canceló mientras esperaba lugar."""
         while not cancelado.is_set():
             try:
-                cola.put(audio, timeout=0.1)
+                cola.put(fragmento, timeout=0.1)
                 return True
             except queue.Full:
                 pass
@@ -66,10 +74,10 @@ def hablar_respuesta(oraciones, kokoro_pipeline, voz, metricas=None):
                 if metricas:
                     metricas.marcar("primera_oracion")
                 print(oracion, end=" ", flush=True)
-                for _, _, audio in kokoro_pipeline(oracion, voice=voz, speed=1.0):
+                for fragmento in sintetizar(oracion):
                     if metricas:
                         metricas.marcar("primera_sintesis")
-                    if not encolar(audio):
+                    if not encolar(fragmento):
                         return
         except Exception as e:
             errores.append(e)
@@ -84,11 +92,12 @@ def hablar_respuesta(oraciones, kokoro_pipeline, voz, metricas=None):
 
     hablo = False
     try:
-        while (audio := cola.get()) is not None:
+        while (fragmento := cola.get()) is not None:
+            audio, frecuencia = fragmento
             hablo = True
             if metricas:
                 metricas.marcar("primer_audio")
-            sd.play(audio, 24000)
+            sd.play(audio, frecuencia)
             sd.wait()
     except BaseException:  # Ctrl+C u otro error mientras se esperaba o reproducía
         cancelado.set()

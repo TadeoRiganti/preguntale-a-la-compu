@@ -11,7 +11,7 @@ from .llm import OLLAMA_URL, generar_respuesta, ollama_disponible, precargar_oll
 from .metricas import Metricas
 from .stt import (cargar_whisper, palabras_detectadas, resolver_palabras, transcribir_activacion,
                   transcribir_pregunta)
-from .tts import agrupar_oraciones, hablar_respuesta
+from .tts import agrupar_oraciones, crear_sintetizador, hablar_respuesta
 
 
 def main():
@@ -77,6 +77,7 @@ def main():
     whisper_main = whisper_wake if args.modelo == "tiny" else cargar_whisper(args.modelo)
     from kokoro import KPipeline  # acá y no arriba: 'transcribir' no necesita cargar torch
     kokoro_pipeline = KPipeline(lang_code='e', repo_id='hexgrad/Kokoro-82M')
+    sintetizar = crear_sintetizador(kokoro_pipeline, args.voz)
 
     try:
         precargar_ollama(args.ollama)
@@ -124,7 +125,7 @@ def main():
 
                 try:
                     oraciones = agrupar_oraciones(generar_respuesta(args.ollama, pregunta, metricas))
-                    hablo = hablar_respuesta(oraciones, kokoro_pipeline, args.voz, metricas)
+                    hablo = hablar_respuesta(oraciones, sintetizar, metricas)
                     if metricas:
                         metricas.marcar("fin")
                     print("\n" if hablo else "(respuesta vacía)\n")
