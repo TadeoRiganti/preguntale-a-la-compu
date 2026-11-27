@@ -1,11 +1,13 @@
 [project]
 name = "consultar-computadora"
 version = "0.1.0"
-description = "Asistente de voz continuo 100% local en español para Linux (Whisper + Ollama + Kokoro TTS)"
+description = "Asistente de voz continuo 100% local en español para Linux (Whisper + Ollama + Piper TTS)"
 readme = "README.md"
+license = "GPL-3.0-or-later"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "kokoro>=0.9.4",
+    "piper-tts>=1.8.0,<2",
     "faster-whisper>=1.1.0",
     "sounddevice>=0.5.1",
     "soundfile>=0.13.0",

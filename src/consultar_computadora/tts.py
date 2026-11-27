@@ -1,10 +1,15 @@
-"""Corte de la respuesta en oraciones y reproducción por voz (Kokoro)."""
+"""Corte de la respuesta en oraciones y reproducción por voz (Piper)."""
+import os
 import re
 import queue
 from contextlib import closing
 import threading
+from pathlib import Path
 import sounddevice as sd
 
+VOZ_PREDETERMINADA = "es_ES-davefx-medium"
+DIRECTORIO_VOCES = (Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
+                    / "consultar-computadora" / "voces")
 MIN_CARACTERES_ORACION = 25    # evita mandar al TTS fragmentos demasiado cortos
 FIN_ORACION = re.compile(r"(?<=[.!?…])\s+|\n+")
 
@@ -32,11 +37,32 @@ def agrupar_oraciones(trozos):
             yield resto
 
 
-def crear_sintetizador(kokoro_pipeline, voz):
+def cargar_voz(nombre):
+    """Carga una voz de Piper; si no está en DIRECTORIO_VOCES, la descarga.
+
+    Antes de devolverla sintetiza un texto que no se reproduce, para que la primera
+    respuesta no pague la inicialización.
+    """
+    # Se importa acá y no arriba: 'transcribir' no necesita cargar Piper
+    from piper import PiperVoice
+    from piper.download_voices import download_voice
+
+    DIRECTORIO_VOCES.mkdir(parents=True, exist_ok=True)
+    if not all((DIRECTORIO_VOCES / f"{nombre}{ext}").exists() for ext in (".onnx", ".onnx.json")):
+        print(f"📥 Descargando la voz de Piper '{nombre}' por única vez...")
+    # Si los archivos ya están no usa la red. Devuelve el nombre actual (algunas voces se renombraron)
+    nombre = download_voice(nombre, DIRECTORIO_VOCES)
+    voz = PiperVoice.load(DIRECTORIO_VOCES / f"{nombre}.onnx")
+    for _ in voz.synthesize("Hola."):
+        pass
+    return voz
+
+
+def crear_sintetizador(voz):
     """Devuelve una función que convierte una oración en fragmentos (audio, frecuencia de muestreo)."""
     def sintetizar(oracion):
-        for _, _, audio in kokoro_pipeline(oracion, voice=voz, speed=1.0):
-            yield audio, 24000
+        for fragmento in voz.synthesize(oracion):
+            yield fragmento.audio_float_array, fragmento.sample_rate
     return sintetizar
 
 
@@ -49,7 +75,7 @@ def hablar_respuesta(oraciones, sintetizar, metricas=None):
     la primera oración, cuándo se obtiene su primer audio y cuándo empieza a sonar.
 
     Si se interrumpe (por ejemplo con Ctrl+C), frena el audio, le avisa al hilo de síntesis para que
-    se detenga y vuelve a lanzar la interrupción sin esperar a ese hilo. Kokoro no se puede cortar
+    se detenga y vuelve a lanzar la interrupción sin esperar a ese hilo. Piper no se puede cortar
     a mitad de una oración: la que estaba sintetizando termina en segundo plano y se descarta.
     """
     cola = queue.Queue(maxsize=2)
