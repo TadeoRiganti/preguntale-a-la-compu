@@ -40,6 +40,41 @@ Síntesis según el largo de la primera oración:
 | 2 | «Un panel solar, o panel fotovoltaico, funciona aprovechando el efecto fotovoltaico.» | 83 | 3,33 s | 40 |
 | 3 | «El caballo blanco de San Martín es blanco.» | 42 | 1,19 s | 28 |
 
+### Piper
+
+- **Fecha:** 2026-11-27
+- **Versión:** rama `feat/piper-tts`, con Kokoro ya quitado
+- **Equipo:** el mismo de la línea base
+- **Opciones:** predeterminadas (Whisper `base`, Ollama `gemma4:e4b`, voz `es_ES-davefx-medium`)
+- **Muestras:** una por pregunta
+
+| Pregunta | Espera | 1er audio | STT | 1er token | 1ª oración | Síntesis 1ª oración | Total | tok/s (tokens) |
+|---|---|---|---|---|---|---|---|---|
+| 1. Cielo | 3,11 | 1,51 | 0,97 | 0,09 | 0,29 | 0,25 | 42,62 | 56,3 (156) |
+| 2. Panel solar | 3,78 | 2,18 | 1,10 | 0,10 | 0,65 | 0,43 | 85,11 | 62,2 (300) |
+| 3. Caballo | 3,11 | 1,51 | 1,01 | 0,07 | 0,23 | 0,26 | 4,81 | 79,0 (13) |
+
+| Pregunta | Primera oración | Caracteres | Síntesis | ms por carácter |
+|---|---|---|---|---|
+| 1 | «El cielo se ve azul debido a un fenómeno llamado dispersión de Rayleigh.» | 72 | 0,25 s | 3,5 |
+| 2 | «Un panel solar funciona mediante un proceso llamado efecto fotovoltaico.» | 72 | 0,43 s | 6,0 |
+| 3 | «El cabaço blanco de San Martín es de color blanco.» | 50 | 0,26 s | 5,2 |
+
+Comparación con Kokoro (segundos):
+
+| Pregunta | Espera Kokoro | Espera Piper | Síntesis Kokoro | Síntesis Piper |
+|---|---|---|---|---|
+| 1. Cielo | 6,59 | 3,11 | 3,06 | 0,25 |
+| 2. Panel solar | 6,78 | 3,78 | 3,33 | 0,43 |
+| 3. Caballo | 4,54 | 3,11 | 1,19 | 0,26 |
+
+No toda la diferencia de espera se debe a la voz: en esta medición Ollama también completó antes la primera oración.
+
+Observaciones:
+
+- La respuesta 2 llegó al tope de 300 tokens (`MAX_TOKENS_RESPUESTA`) y quedó cortada.
+- En la pregunta 3, Whisper transcribió «cabaço» en lugar de «caballo».
+
 ## Pruebas funcionales
 
 Repasar después de cada cambio importante:
