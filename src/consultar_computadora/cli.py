@@ -107,7 +107,9 @@ def main():
                     metricas = Metricas() if args.metricas else None
                     pregunta = transcribir_pregunta(whisper_main, audio_pregunta, palabras[0])
                 except KeyboardInterrupt:
-                    print("\n↩️  Pregunta cancelada. Volviendo a espera...\n")
+                    print("\n\n🟢 Pregunta cancelada.")
+                    print(f"   Di {decir} para preguntar de nuevo.")
+                    print("   Ctrl+C: cancela la pregunta o la respuesta en curso; en espera, cierra el programa.\n")
                     continue
                 if metricas:
                     metricas.marcar("stt_fin")
