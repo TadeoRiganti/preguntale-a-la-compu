@@ -50,8 +50,7 @@ def cargar_voz(nombre):
     DIRECTORIO_VOCES.mkdir(parents=True, exist_ok=True)
     if not all((DIRECTORIO_VOCES / f"{nombre}{ext}").exists() for ext in (".onnx", ".onnx.json")):
         print(f"📥 Descargando la voz de Piper '{nombre}' por única vez...")
-    # Si los archivos ya están no usa la red. Devuelve el nombre actual (algunas voces se renombraron)
-    nombre = download_voice(nombre, DIRECTORIO_VOCES)
+    download_voice(nombre, DIRECTORIO_VOCES)  # si los archivos ya están no usa la red
     voz = PiperVoice.load(DIRECTORIO_VOCES / f"{nombre}.onnx")
     for _ in voz.synthesize("Hola."):
         pass
