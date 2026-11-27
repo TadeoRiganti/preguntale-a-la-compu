@@ -87,7 +87,7 @@ def main():
 
     print(f"\n🟢 La computadora está activa (Whisper: {args.modelo} | Ollama: {args.ollama}).")
     print(f"   Di {decir} para preguntar.")
-    print("   Ctrl+C: cancela la respuesta en curso; en espera, cierra el programa.\n")
+    print("   Ctrl+C: cancela la pregunta o la respuesta en curso; en espera, cierra el programa.\n")
 
     escuchar_directo = False  # tras cancelar una respuesta se escucha otra pregunta sin pedir la palabra
     try:
@@ -102,9 +102,13 @@ def main():
                 emitir_tono(880, 0.12)
                 print("🎤 Ahora te estoy escuchando... ¿Qué querías saber?")
 
-                audio_pregunta = grabar_frase(segundos_corte=SEGUNDOS_SILENCIO)
-                metricas = Metricas() if args.metricas else None
-                pregunta = transcribir_pregunta(whisper_main, audio_pregunta, palabras[0])
+                try:
+                    audio_pregunta = grabar_frase(segundos_corte=SEGUNDOS_SILENCIO)
+                    metricas = Metricas() if args.metricas else None
+                    pregunta = transcribir_pregunta(whisper_main, audio_pregunta, palabras[0])
+                except KeyboardInterrupt:
+                    print("\n↩️  Pregunta cancelada. Volviendo a espera...\n")
+                    continue
                 if metricas:
                     metricas.marcar("stt_fin")
 
