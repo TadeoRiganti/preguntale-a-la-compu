@@ -13,10 +13,12 @@ DIRECTORIO_VOCES = (Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".loca
                     / "consultar-computadora" / "voces")
 MIN_CARACTERES_ORACION = 25    # evita mandar al TTS fragmentos demasiado cortos
 FIN_ORACION = re.compile(r"(?<=[.!?…])\s+|\n+")
+# Símbolos de markdown y emojis (por rangos, para no quitar signos como "°")
+NO_SE_LEE = re.compile("[*#_`\u200d\u20e3\ufe0f\u2600-\u27bf\u2b00-\u2bff\U0001f000-\U0001faff]")
 
 
 def agrupar_oraciones(trozos):
-    """Agrupa el texto en streaming en oraciones completas (y sin símbolos de markdown).
+    """Agrupa el texto en streaming en oraciones completas (sin símbolos de markdown ni emojis).
 
     Si quien consume deja de pedir oraciones y cierra este generador, cierra también el de origen
     (así se corta la conexión con Ollama y deja de generar).
@@ -25,7 +27,7 @@ def agrupar_oraciones(trozos):
         pendiente = ""
         buffer = ""
         for trozo in trozos:
-            buffer += re.sub(r"[*#_`]", "", trozo)
+            buffer += NO_SE_LEE.sub("", trozo)
             partes = FIN_ORACION.split(buffer)
             buffer = partes.pop()  # último fragmento: puede estar incompleto
             for parte in partes:
