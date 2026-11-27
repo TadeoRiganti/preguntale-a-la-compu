@@ -1,6 +1,7 @@
 """Corte de la respuesta en oraciones y reproducción por voz (Kokoro)."""
 import re
 import queue
+from contextlib import closing
 import threading
 import sounddevice as sd
 
@@ -9,21 +10,26 @@ FIN_ORACION = re.compile(r"(?<=[.!?…])\s+|\n+")
 
 
 def agrupar_oraciones(trozos):
-    """Agrupa el texto en streaming en oraciones completas (y sin símbolos de markdown)."""
-    pendiente = ""
-    buffer = ""
-    for trozo in trozos:
-        buffer += re.sub(r"[*#_`]", "", trozo)
-        partes = FIN_ORACION.split(buffer)
-        buffer = partes.pop()  # último fragmento: puede estar incompleto
-        for parte in partes:
-            pendiente = f"{pendiente} {parte}".strip()
-            if len(pendiente) >= MIN_CARACTERES_ORACION:
-                yield pendiente
-                pendiente = ""
-    resto = f"{pendiente} {buffer}".strip()
-    if resto:
-        yield resto
+    """Agrupa el texto en streaming en oraciones completas (y sin símbolos de markdown).
+
+    Si quien consume deja de pedir oraciones y cierra este generador, cierra también el de origen
+    (así se corta la conexión con Ollama y deja de generar).
+    """
+    with closing(trozos):
+        pendiente = ""
+        buffer = ""
+        for trozo in trozos:
+            buffer += re.sub(r"[*#_`]", "", trozo)
+            partes = FIN_ORACION.split(buffer)
+            buffer = partes.pop()  # último fragmento: puede estar incompleto
+            for parte in partes:
+                pendiente = f"{pendiente} {parte}".strip()
+                if len(pendiente) >= MIN_CARACTERES_ORACION:
+                    yield pendiente
+                    pendiente = ""
+        resto = f"{pendiente} {buffer}".strip()
+        if resto:
+            yield resto
 
 
 def hablar_respuesta(oraciones, kokoro_pipeline, voz, metricas=None):
