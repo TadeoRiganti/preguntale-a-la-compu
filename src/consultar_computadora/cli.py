@@ -11,7 +11,8 @@ from .llm import OLLAMA_URL, generar_respuesta, ollama_disponible, precargar_oll
 from .metricas import Metricas
 from .stt import (cargar_whisper, palabras_detectadas, resolver_palabras, transcribir_activacion,
                   transcribir_pregunta)
-from .tts import agrupar_oraciones, hablar_respuesta
+from .tts import (VOZ_PREDETERMINADA, agrupar_oraciones, cargar_voz, crear_sintetizador,
+                  hablar_respuesta)
 
 
 def main():
@@ -32,8 +33,8 @@ def main():
     )
     parser.add_argument(
         "-v", "--voz",
-        default="ef_dora",
-        help="Voz en español de Kokoro: ef_dora, em_alex, em_santa (default: ef_dora)"
+        default=VOZ_PREDETERMINADA,
+        help=f"Voz de Piper en español (default: {VOZ_PREDETERMINADA})"
     )
     parser.add_argument(
         "--metricas",
@@ -75,8 +76,12 @@ def main():
     print("Cargando modelos en memoria...")
     whisper_wake = cargar_whisper("tiny")
     whisper_main = whisper_wake if args.modelo == "tiny" else cargar_whisper(args.modelo)
-    from kokoro import KPipeline  # acá y no arriba: 'transcribir' no necesita cargar torch
-    kokoro_pipeline = KPipeline(lang_code='e', repo_id='hexgrad/Kokoro-82M')
+    try:
+        sintetizar = crear_sintetizador(cargar_voz(args.voz))
+    except Exception as e:
+        print(f"❌ Error: no se pudo cargar la voz '{args.voz}' ({e}). "
+              "Revisá el nombre y, si es la primera vez que la usás, la conexión a internet.")
+        return
 
     try:
         precargar_ollama(args.ollama)
@@ -124,7 +129,7 @@ def main():
 
                 try:
                     oraciones = agrupar_oraciones(generar_respuesta(args.ollama, pregunta, metricas))
-                    hablo = hablar_respuesta(oraciones, kokoro_pipeline, args.voz, metricas)
+                    hablo = hablar_respuesta(oraciones, sintetizar, metricas)
                     if metricas:
                         metricas.marcar("fin")
                     print("\n" if hablo else "(respuesta vacía)\n")

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-echo "📦 Instalando dependencias del sistema (espeak-ng y portaudio)..."
-sudo apt-get update && sudo apt-get install -y espeak-ng libportaudio2 curl
+echo "📦 Instalando dependencias del sistema (portaudio)..."
+sudo apt-get update && sudo apt-get install -y libportaudio2 curl
 
 if ! command -v uv &> /dev/null; then
     echo "⚡ Instalando uv..."
