@@ -95,7 +95,7 @@ Si no se entiende la pregunta, suena un tono grave y vuelve a la espera. Para sa
 | Situación | Qué hace `Ctrl+C` |
 |---|---|
 | Esperando la palabra de activación | Cierra el programa |
-| Grabando o transcribiendo tu pregunta | Cancela la pregunta y vuelve a esperar la palabra de activación |
+| Grabando o transcribiendo tu pregunta | Cancela la pregunta, repite las instrucciones y vuelve a esperar la palabra de activación |
 | Respondiendo (antes o durante el audio) | Corta el audio y la generación, suena el pitido agudo y queda escuchando una pregunta nueva, sin repetir la palabra de activación |
 
 Si cancelás una respuesta y volvés a apretar `Ctrl+C` mientras te escucha, se cancela esa grabación y vuelve a la espera; a la tercera, cierra el programa.
