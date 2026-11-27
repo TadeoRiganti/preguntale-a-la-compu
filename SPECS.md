@@ -59,15 +59,9 @@ Desarrollar una aplicación en Python, 100 % local, modular y de baja latencia.
 - 64 GB RAM.
 - 12 GB VRAM.
 
-**Entorno objetivo primario:**
-- Laptop sin GPU dedicada.
-- 8 GB RAM totales.
-- Aproximadamente 4.5 GB disponibles para la aplicación.
-
-**Entorno objetivo futuro:**
-- Mini PC / Raspberry Pi 4 o 5.
-- Arquitectura ARM64.
-- 4-8 GB RAM.
+**Entorno objetivo final:**
+- Mini PC con Intel N100 (x86_64, 4 núcleos), sin GPU dedicada.
+- RAM: a definir.
 
 ### Reglas de oro
 
@@ -88,24 +82,30 @@ El flujo principal de procesamiento será:
 
 `[Micrófono + VAD]` ➔ `Faster-Whisper (STT)` ➔ `llama.cpp Stream (LLM)` ➔ `Segmentador por Oraciones` ➔ `Piper TTS` ➔ `[Altavoz]`
 
+**Estado actual:** el LLM se consulta con Ollama. `llama.cpp` es el stack final y reemplazará a Ollama en una etapa posterior.
+
 El procesamiento debe realizarse íntegramente en memoria, evitando archivos temporales y transferencias innecesarias.
 
 ## 3.2. Estructura de archivos
 
 ```text
-asistente_voz/
-├── ASISTENTE_VOZ_LOCAL_SPEC.md  # Documento maestro del proyecto
-├── config.py                   # Perfiles de hardware
-├── main.py                     # Orquestador del bucle principal
-├── audio_in.py                 # Captura de micrófono y VAD
-├── stt.py                      # Reconocimiento de voz
-├── llm.py                      # Motor LLM
-├── tts.py                      # Síntesis y reproducción de voz
-├── modelos/                    # Modelos locales
-│   ├── llm/
-│   └── tts/
-└── requirements.txt             # Dependencias exactas
+preguntale-a-la-compu/
+├── README.md                   # Uso y opciones
+├── SPECS.md                    # Documento maestro del proyecto
+├── MEDICIONES.md               # Línea base y pruebas de control
+├── pyproject.toml              # Dependencias
+├── install.sh                  # Instalador
+└── src/consultar_computadora/
+    ├── cli.py                  # Orquestador del bucle principal
+    ├── audio.py                # Captura de micrófono y detección de silencio
+    ├── stt.py                  # Reconocimiento de voz y palabra de activación
+    ├── llm.py                  # Cliente del LLM
+    ├── tts.py                  # Síntesis y reproducción de voz
+    ├── metricas.py             # Tiempos por etapa
+    └── transcribir.py          # Subcomando de depuración
 ```
+
+Los modelos se guardan fuera del repositorio. Los perfiles de hardware (`config.py`) siguen pendientes.
 
 ---
 
@@ -114,6 +114,8 @@ asistente_voz/
 ## 4.1. `config.py` — Perfiles Adaptativos
 
 Centralizar rutas de archivos y recursos mediante una variable `PERFIL_ACTIVO`.
+
+**Pendiente:** todavía no está implementado y los perfiles hay que revisarlos para la N100.
 
 **PC_GPU:**
 - Whisper: `medium` (`cuda`, `float16`).
@@ -135,7 +137,9 @@ Centralizar rutas de archivos y recursos mediante una variable `PERFIL_ACTIVO`.
 - `n_ctx=512`.
 - `n_threads=4`.
 
-## 4.2. `audio_in.py` — Entrada de Audio
+## 4.2. `audio.py` — Entrada de Audio
+
+**Estado actual:** captura en `float32`, umbral de volumen con 1,6 s de silencio y activación por voz con Whisper `tiny`.
 
 - Utilizar `sounddevice`.
 - Captura a 16 kHz, mono, `int16`.
@@ -150,6 +154,8 @@ Centralizar rutas de archivos y recursos mediante una variable `PERFIL_ACTIVO`.
 
 Librería: `faster-whisper`.
 
+**Estado actual:** `beam_size=1` para la activación y `beam_size=5` para la pregunta.
+
 - Cargar `WhisperModel` una sola vez al inicializar el módulo.
 - Forzar `language="es"`.
 - Utilizar `beam_size=1` para priorizar velocidad en CPU.
@@ -158,6 +164,8 @@ Librería: `faster-whisper`.
 ## 4.4. `llm.py` — Motor de Lenguaje
 
 Librería definitiva: `llama-cpp-python`.
+
+**Estado actual:** Ollama por su API local, con streaming. Se mantiene hasta terminar la transición a Piper.
 
 **Prototipado:**
 Puede utilizarse Ollama temporalmente para experimentar con modelos y prompts.
@@ -192,11 +200,11 @@ Librerías:
 
 **Implementación:**
 - Cargar el modelo `.onnx` una sola vez en memoria.
-- Modelo de referencia: `es_ES-davefx-medium.onnx`.
+- Voz predeterminada: `es_ES-davefx-medium.onnx` (a comparar con otras).
 - Utilizar `PiperVoice.load`.
-- Implementar reproducción mediante `sounddevice.OutputStream`.
-- Enviar los chunks de audio `int16` directamente al dispositivo de salida.
-- Utilizar `synthesize_stream_raw()` para evitar la generación de archivos `.wav`.
+- Utilizar `synthesize()`, que entrega el audio en memoria (un fragmento por oración), sin archivos `.wav`.
+- Reproducir cada fragmento con `sounddevice.play` a la frecuencia de la voz.
+- Evaluar `sounddevice.OutputStream` junto con la cancelación por voz.
 
 ---
 
@@ -216,40 +224,40 @@ La prioridad es conseguir componentes funcionales y medibles antes de avanzar ha
 
 ### Paso 2 — Módulo de Voz (`tts.py`)
 
-- [ ] Implementar carga única del modelo Piper.
-- [ ] Implementar reproducción mediante streaming.
+- [x] Implementar carga única del modelo Piper.
+- [x] Implementar reproducción mediante streaming.
 - [ ] Probar generación y reproducción con texto fijo.
-- [ ] Verificar que no se generen archivos temporales.
+- [x] Verificar que no se generen archivos temporales.
 
 ### Paso 3 — Módulo de Lenguaje (`llm.py`)
 
 - [ ] Implementar carga del modelo GGUF mediante `llama-cpp-python`.
 - [ ] Implementar generación de texto en streaming.
-- [ ] Implementar segmentador por oraciones.
-- [ ] Conectar la salida del LLM con `tts.py`.
-- [ ] Medir tiempo hasta el primer token y primera reproducción.
+- [x] Implementar segmentador por oraciones.
+- [x] Conectar la salida del LLM con `tts.py`.
+- [x] Medir tiempo hasta el primer token y primera reproducción.
 
-### Paso 4 — Módulo de Escucha (`audio_in.py` + `stt.py`)
+### Paso 4 — Módulo de Escucha (`audio.py` + `stt.py`)
 
-- [ ] Implementar captura de micrófono.
-- [ ] Implementar detección de actividad de voz (VAD).
-- [ ] Implementar corte automático por silencio.
-- [ ] Integrar transcripción mediante Faster-Whisper.
-- [ ] Probar consultas de forma independiente.
+- [x] Implementar captura de micrófono.
+- [x] Implementar detección de actividad de voz (VAD).
+- [x] Implementar corte automático por silencio.
+- [x] Integrar transcripción mediante Faster-Whisper.
+- [x] Probar consultas de forma independiente.
 
-### Paso 5 — Integración (`main.py`)
+### Paso 5 — Integración (`cli.py`)
 
-- [ ] Unificar los módulos en el bucle principal.
-- [ ] Implementar el ciclo completo de escucha, procesamiento y respuesta.
-- [ ] Verificar que las consultas sean independientes.
-- [ ] Incorporar métricas de rendimiento:
+- [x] Unificar los módulos en el bucle principal.
+- [x] Implementar el ciclo completo de escucha, procesamiento y respuesta.
+- [x] Verificar que las consultas sean independientes.
+- [x] Incorporar métricas de rendimiento:
   - Tiempo de transcripción (STT).
   - Tiempo hasta el primer token (LLM).
   - Tiempo hasta la primera oración.
   - Tiempo de síntesis y reproducción (TTS).
   - Latencia total percibida.
 
-### Paso 6 — Simulación de Restricciones (`LAPTOP_8GB`)
+### Paso 6 — Pruebas en el hardware objetivo (N100)
 
 - [ ] Ejecutar el modelo LLM forzando `n_gpu_layers=0`.
 - [ ] Ejecutar Whisper utilizando `device="cpu"`.
@@ -270,7 +278,7 @@ El proyecto se considerará funcionalmente terminado cuando:
 - Los modelos se carguen una sola vez al iniciar.
 - La respuesta pueda reproducirse progresivamente.
 - Las consultas se procesen de manera independiente.
-- El sistema pueda ejecutarse en el hardware objetivo primario (LAPTOP_8GB).
+- El sistema pueda ejecutarse en el hardware objetivo (mini PC N100).
 - Se disponga de métricas básicas para evaluar rendimiento y consumo de recursos.
 
 ---
