@@ -2,6 +2,7 @@
 import os
 import re
 import queue
+import tempfile
 from contextlib import closing
 import threading
 from pathlib import Path
@@ -48,9 +49,15 @@ def cargar_voz(nombre):
     from piper.download_voices import download_voice
 
     DIRECTORIO_VOCES.mkdir(parents=True, exist_ok=True)
-    if not all((DIRECTORIO_VOCES / f"{nombre}{ext}").exists() for ext in (".onnx", ".onnx.json")):
+    archivos = (f"{nombre}.onnx", f"{nombre}.onnx.json")
+    rutas = [DIRECTORIO_VOCES / archivo for archivo in archivos]
+    if not all(ruta.exists() and ruta.stat().st_size for ruta in rutas):
         print(f"📥 Descargando la voz de Piper '{nombre}' por única vez...")
-    download_voice(nombre, DIRECTORIO_VOCES)  # si los archivos ya están no usa la red
+        # Se descarga aparte para que, si se interrumpe, no quede un modelo a medias
+        with tempfile.TemporaryDirectory(dir=DIRECTORIO_VOCES) as temporal:
+            download_voice(nombre, Path(temporal))
+            for archivo in archivos:
+                (Path(temporal) / archivo).replace(DIRECTORIO_VOCES / archivo)
     voz = PiperVoice.load(DIRECTORIO_VOCES / f"{nombre}.onnx")
     for _ in voz.synthesize("Hola."):
         pass
