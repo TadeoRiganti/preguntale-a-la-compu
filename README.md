@@ -86,7 +86,21 @@ La primera vez descarga los modelos de Whisper y Kokoro (puede tardar unos minut
 2. Esperá el pitido agudo y hacé tu pregunta.
 3. Hacé una pausa de ~1,6 segundos: el asistente interpreta el silencio como fin de la pregunta.
 4. Escuchá la respuesta. Cuando termina, vuelve a esperar la palabra de activación.
-Si no se entiende la pregunta, suena un tono grave y vuelve a la espera. Para salir, presioná `Ctrl+C`.
+Si no se entiende la pregunta, suena un tono grave y vuelve a la espera. Para salir, presioná `Ctrl+C` con el asistente en espera.
+
+### Cancelar con Ctrl+C
+
+`Ctrl+C` hace una cosa distinta según lo que esté pasando:
+
+| Situación | Qué hace `Ctrl+C` |
+|---|---|
+| Esperando la palabra de activación | Cierra el programa |
+| Grabando o transcribiendo tu pregunta | Cancela la pregunta y vuelve a esperar la palabra de activación |
+| Respondiendo (antes o durante el audio) | Corta el audio y la generación, suena el pitido agudo y queda escuchando una pregunta nueva, sin repetir la palabra de activación |
+
+Si cancelás una respuesta y volvés a apretar `Ctrl+C` mientras te escucha, se cancela esa grabación y vuelve a la espera; a la tercera, cierra el programa.
+
+Kokoro no se puede interrumpir a mitad de una oración: la que estaba sintetizando termina en segundo plano (unos segundos de CPU) y se descarta. Ollama deja de generar cuando termina esa oración, que es cuando el programa le cierra la conexión.
  
 ## Opciones
  
@@ -244,9 +258,13 @@ Probá un modelo más chico en `--ollama` y mantené el modelo Whisper en `base`
  
 - Solo Linux (probado con Ubuntu/Debian); el instalador depende de `apt-get`.
 - No tiene memoria de conversación: cada pregunta se responde de forma independiente.
-- No se puede interrumpir la respuesta mientras el asistente habla.
+- La respuesta solo se puede cancelar con `Ctrl+C`, no con la voz (ver [Pendiente](#pendiente)).
 - La detección de la palabra de activación se basa en transcripción, por lo que a veces puede fallar o dar falsos positivos.
 - Es un proyecto vibecodeado: puede tener errores y no tiene tests automáticos.
+## Pendiente
+
+- **Cancelar por voz** (una palabra o la propia palabra de activación como interrupción). Queda para cuando se reemplace Kokoro por Piper, junto con una captura de audio que siga escuchando mientras el asistente habla. Habría que resolver antes tres cosas: el eco (los parlantes entran al micrófono y Whisper transcribiría la propia respuesta; con auriculares o cancelación de eco se evita), el costo de CPU de transcribir en continuo mientras se sintetiza, y la demora de ~1 s hasta que se confirma la palabra.
+
 ## Estructura del proyecto
  
 ```
