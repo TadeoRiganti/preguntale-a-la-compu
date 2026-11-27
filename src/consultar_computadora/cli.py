@@ -86,15 +86,19 @@ def main():
         return
 
     print(f"\n🟢 La computadora está activa (Whisper: {args.modelo} | Ollama: {args.ollama}).")
-    print(f"   Di {decir} para preguntar (Ctrl+C para salir).\n")
+    print(f"   Di {decir} para preguntar.")
+    print("   Ctrl+C: cancela la respuesta en curso; en espera, cierra el programa.\n")
 
+    escuchar_directo = False  # tras cancelar una respuesta se escucha otra pregunta sin pedir la palabra
     try:
         while True:
-            audio_wake = grabar_frase(max_segundos=ACTIVACION_MAX_SEGUNDOS,
-                                      segundos_corte=ACTIVACION_SEGUNDOS_SILENCIO)
-            texto_detectado = transcribir_activacion(whisper_wake, audio_wake)
+            if not escuchar_directo:
+                audio_wake = grabar_frase(max_segundos=ACTIVACION_MAX_SEGUNDOS,
+                                          segundos_corte=ACTIVACION_SEGUNDOS_SILENCIO)
+                texto_detectado = transcribir_activacion(whisper_wake, audio_wake)
 
-            if palabras_detectadas(texto_detectado, palabras):
+            if escuchar_directo or palabras_detectadas(texto_detectado, palabras):
+                escuchar_directo = False
                 emitir_tono(880, 0.12)
                 print("🎤 Ahora te estoy escuchando... ¿Qué querías saber?")
 
@@ -120,6 +124,10 @@ def main():
                     print("\n" if hablo else "(respuesta vacía)\n")
                     if metricas and hablo:
                         print(metricas.resumen(SEGUNDOS_SILENCIO) + "\n")
+                except KeyboardInterrupt:
+                    print("\n✋ Respuesta cancelada.\n")
+                    escuchar_directo = True
+                    continue
                 except Exception as e:
                     print(f"\n❌ Error al generar la respuesta: {e}\n")
 
