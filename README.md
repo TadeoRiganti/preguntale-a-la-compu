@@ -18,14 +18,14 @@ Micrófono ──► Whisper base/small/turbo (transcribe tu pregunta)
               Ollama (genera la respuesta)
                   │
                   ▼
-              Kokoro TTS (la lee en voz alta) ──► Parlantes
+              Piper TTS (la lee en voz alta) ──► Parlantes
 ```
  
 1. El programa escucha en bucle fragmentos cortos de audio y los transcribe con un modelo Whisper liviano (`tiny`) buscando la palabra de activación.
 2. Al detectarla, emite un pitido y graba tu pregunta hasta que haces una pausa de silencio.
 3. La pregunta se transcribe con el modelo Whisper que elijas (`base` por defecto).
 4. Se la envía a un modelo local de [Ollama](https://ollama.com) por su API local, con la instrucción de responder en español, en texto plano y de forma concisa. La respuesta llega en streaming.
-5. [Kokoro TTS](https://github.com/hexgrad/kokoro) la lee en voz alta oración por oración, a medida que llega (mientras reproduce una oración ya sintetiza la siguiente), y el asistente vuelve a quedar en espera.
+5. [Piper](https://github.com/OHF-Voice/piper1-gpl) la lee en voz alta oración por oración, a medida que llega (mientras reproduce una oración ya sintetiza la siguiente), y el asistente vuelve a quedar en espera.
 ## Requisitos
  
 | Requisito | Detalle |
@@ -36,9 +36,9 @@ Micrófono ──► Whisper base/small/turbo (transcribe tu pregunta)
 | [Ollama](https://ollama.com) | Instalado y con el servicio corriendo (el programa lo consulta por su API local) |
 | Modelo de Ollama | Por defecto `gemma4:e4b` (ver más abajo) |
 | Internet | Solo en la primera ejecución, para descargar los modelos |
-| Hardware | Funciona en CPU (PyTorch CPU y Whisper en `int8`). Una GPU no es necesaria para Whisper/Kokoro, pero el tiempo de respuesta depende mucho del modelo de Ollama y de tu equipo |
+| Hardware | Funciona en CPU (Whisper en `int8` y Piper). Una GPU no es necesaria para Whisper/Piper, pero el tiempo de respuesta depende mucho del modelo de Ollama y de tu equipo |
  
-Paquetes del sistema que instala `install.sh`: `espeak-ng` (lo usa Kokoro para fonética), `libportaudio2` (captura y reproducción de audio) y `curl`.
+Paquetes del sistema que instala `install.sh`: `libportaudio2` (captura y reproducción de audio) y `curl`.
  
 ## Instalación
  
@@ -62,7 +62,7 @@ cd preguntale-a-la-compu
  
 El script:
  
-1. Instala `espeak-ng`, `libportaudio2` y `curl` con `sudo apt-get` (te va a pedir la contraseña).
+1. Instala `libportaudio2` y `curl` con `sudo apt-get` (te va a pedir la contraseña).
 2. Instala [`uv`](https://docs.astral.sh/uv/) si no lo tenés.
 3. Instala el comando global `consultar-computadora` con `uv tool install --force .`.
 > Si `consultar-computadora` no aparece en tu terminal después de instalar, abrí una terminal nueva o agregá `~/.local/bin` a tu `PATH`.
@@ -70,7 +70,7 @@ El script:
 ### Instalación manual (alternativa)
  
 ```bash
-sudo apt-get install -y espeak-ng libportaudio2
+sudo apt-get install -y libportaudio2
 uv tool install --force .
 ```
  
@@ -80,7 +80,7 @@ uv tool install --force .
 consultar-computadora
 ```
  
-La primera vez descarga los modelos de Whisper y Kokoro (puede tardar unos minutos). Cuando veas el mensaje de que la computadora está activa:
+La primera vez descarga los modelos de Whisper y la voz de Piper (puede tardar unos minutos). Cuando veas el mensaje de que la computadora está activa:
  
 1. Decí **"Computadora"** (también funcionan "computador" y "compu").
 2. Esperá el pitido agudo y hacé tu pregunta.
@@ -100,7 +100,7 @@ Si no se entiende la pregunta, suena un tono grave y vuelve a la espera. Para sa
 
 Si cancelás una respuesta y volvés a apretar `Ctrl+C` mientras te escucha, se cancela esa grabación y vuelve a la espera; a la tercera, cierra el programa.
 
-Kokoro no se puede interrumpir a mitad de una oración: la que estaba sintetizando termina en segundo plano (unos segundos de CPU) y se descarta. Ollama deja de generar cuando termina esa oración, que es cuando el programa le cierra la conexión.
+Piper no se puede interrumpir a mitad de una oración: la que estaba sintetizando termina en segundo plano y se descarta. Ollama deja de generar cuando termina esa oración, que es cuando el programa le cierra la conexión.
  
 ## Opciones
  
@@ -108,7 +108,7 @@ Kokoro no se puede interrumpir a mitad de una oración: la que estaba sintetizan
 |---|---|---|
 | `-m`, `--modelo` | Modelo Whisper para transcribir la pregunta: `base`, `small` o `turbo` | `base` |
 | `--ollama` | Modelo de Ollama a utilizar | `gemma4:e4b` |
-| `-v`, `--voz` | Voz en español de Kokoro: `ef_dora`, `em_alex`, `em_santa` | `ef_dora` |
+| `-v`, `--voz` | Voz de Piper en español (ver [Voces](#voces)) | `es_ES-davefx-medium` |
 | `-p`, `--palabra` | Palabra o frase de activación. Reemplaza a las predeterminadas, vale solo para esa ejecución y se puede repetir. Las frases van entre comillas | `computadora`, `computador`, `compu` |
 | `--metricas` | Muestra, después de cada respuesta, cuánto tardó cada etapa | desactivado |
  
@@ -118,14 +118,26 @@ Ejemplos:
 # Mejor transcripción, un poco más lento
 consultar-computadora --modelo small
  
-# Otro modelo de Ollama y voz masculina
-consultar-computadora --ollama llama3.2 --voz em_alex
+# Otro modelo de Ollama y otra voz
+consultar-computadora --ollama llama3.2 --voz es_MX-ald-medium
  
 # Máxima precisión de transcripción
-consultar-computadora -m turbo -v ef_dora
+consultar-computadora -m turbo -v es_AR-daniela-high
 ```
  
 Elegir el modelo Whisper es un compromiso entre velocidad y precisión: `base` es el más rápido, `small` equilibra ambos y `turbo` es el más preciso pero el que más recursos consume.
+
+## Voces
+
+`--voz` acepta el nombre de una [voz de Piper](https://huggingface.co/rhasspy/piper-voices/tree/main/es) en español (`es_ES`, `es_MX` o `es_AR`). Se pueden escuchar muestras en [piper-samples](https://rhasspy.github.io/piper-samples).
+
+```bash
+consultar-computadora --voz es_MX-ald-medium
+```
+
+- La primera vez que usás una voz se descarga en `~/.local/share/consultar-computadora/voces` (o en `$XDG_DATA_HOME/consultar-computadora/voces`). Después funciona sin conexión.
+- La última parte del nombre es la calidad. Las voces `high` (como `es_AR-daniela-high`) tardan bastante más en sintetizar que las `medium`.
+- Cada voz tiene su propia licencia, indicada en su `MODEL_CARD`. La predeterminada se entrenó con datos CC0.
 
 ## Medir la latencia
 
@@ -148,7 +160,7 @@ Los números son un ejemplo. Qué significa cada uno:
 - **total:** desde que terminó la grabación hasta que termina de hablar.
 - **STT:** lo que tardó Whisper en transcribir la pregunta.
 - **1er token** y **1ª oración:** lo que tardó Ollama en empezar a responder y en completar la primera oración, medido desde que se le envía la pregunta.
-- **síntesis 1ª oración:** lo que tardó Kokoro en generar el primer audio, desde que la primera oración estuvo lista. Si es la parte más grande de la espera, el cuello de botella es la voz y no el modelo de lenguaje.
+- **síntesis 1ª oración:** lo que tardó Piper en generar el primer audio, desde que la primera oración estuvo lista. Si es la parte más grande de la espera, el cuello de botella es la voz y no el modelo de lenguaje.
 - **tok/s:** velocidad de generación según Ollama.
 - **carga del modelo:** solo aparece si Ollama tuvo que cargar el modelo en memoria (por ejemplo, tras una pausa larga).
 
@@ -222,6 +234,7 @@ Estos valores son constantes al comienzo de cada módulo de `src/consultar_compu
 | `ACTIVACION_SEGUNDOS_SILENCIO` | `audio.py` | Segundos de silencio que cierran esa grabación | `0.7` |
 | `OLLAMA_KEEP_ALIVE` | `llm.py` | Cuánto tiempo queda el modelo de Ollama en memoria tras la última consulta | `30m` |
 | `MAX_TOKENS_RESPUESTA` | `llm.py` | Tope de tokens por respuesta (si las respuestas se cortan, subilo) | `300` |
+| `VOZ_PREDETERMINADA` | `tts.py` | Voz que se usa sin `--voz` | `es_ES-davefx-medium` |
 | `MIN_CARACTERES_ORACION` | `tts.py` | Largo mínimo de cada fragmento que se manda al TTS: más bajo empieza a hablar antes, pero suena más entrecortado | `25` |
  
 Si instalaste con `uv tool install`, después de editar el código volvé a ejecutar `uv tool install --force .` para que el comando global use tus cambios.
@@ -229,7 +242,7 @@ Si instalaste con `uv tool install`, después de editar el código volvé a ejec
 ## Privacidad
  
 - La voz se transcribe localmente con Whisper y la respuesta se genera localmente con Ollama; el audio y las preguntas no salen de tu equipo.
-- Internet solo se usa para descargar los modelos la primera vez (Whisper y Kokoro desde Hugging Face, y el modelo de Ollama con `ollama pull`). Después podés usarlo sin conexión.
+- Internet solo se usa para descargar los modelos la primera vez (Whisper y las voces de Piper desde Hugging Face, y el modelo de Ollama con `ollama pull`). Después podés usarlo sin conexión.
 - El micrófono permanece escuchando mientras el programa está abierto, pero solo se procesa el audio localmente y no se guarda ninguna grabación.
 ## Solución de problemas
  
@@ -248,8 +261,8 @@ Aumentá `SEGUNDOS_SILENCIO` si hacés pausas largas mientras hablás.
 **No se escucha el audio o no capta el micrófono**
 Confirmá que `libportaudio2` esté instalado y que el micrófono y los parlantes predeterminados del sistema sean los correctos (por ejemplo, desde la configuración de sonido del escritorio).
  
-**Errores de Kokoro relacionados con `espeak`**
-Instalá `espeak-ng` con `sudo apt-get install espeak-ng`.
+**`Error: no se pudo cargar la voz`**
+Revisá que el nombre sea el de una [voz de Piper](https://huggingface.co/rhasspy/piper-voices/tree/main/es) (los nombres de Kokoro, como `ef_dora`, ya no sirven). Si es la primera vez que usás esa voz, hace falta conexión a internet.
  
 **Es muy lento**
 Probá un modelo más chico en `--ollama` y mantené el modelo Whisper en `base`. La transcripción corre en CPU.
@@ -263,12 +276,15 @@ Probá un modelo más chico en `--ollama` y mantené el modelo Whisper en `base`
 - Es un proyecto vibecodeado: puede tener errores y no tiene tests automáticos.
 ## Pendiente
 
-- **Cancelar por voz** (una palabra o la propia palabra de activación como interrupción). Queda para cuando se reemplace Kokoro por Piper, junto con una captura de audio que siga escuchando mientras el asistente habla. Habría que resolver antes tres cosas: el eco (los parlantes entran al micrófono y Whisper transcribiría la propia respuesta; con auriculares o cancelación de eco se evita), el costo de CPU de transcribir en continuo mientras se sintetiza, y la demora de ~1 s hasta que se confirma la palabra.
+- **Cancelar por voz** (una palabra o la propia palabra de activación como interrupción). Necesita una captura de audio que siga escuchando mientras el asistente habla. Habría que resolver antes tres cosas: el eco (los parlantes entran al micrófono y Whisper transcribiría la propia respuesta; con auriculares o cancelación de eco se evita), el costo de CPU de transcribir en continuo mientras se sintetiza, y la demora de ~1 s hasta que se confirma la palabra.
 
 ## Estructura del proyecto
  
 ```
 .
+├── LICENSE                         # GPL-3.0
+├── MEDICIONES.md                   # Línea base y pruebas de control
+├── SPECS.md                        # Especificación y hoja de ruta
 ├── install.sh                      # Instalador (dependencias del sistema + uv + comando global)
 ├── pyproject.toml                  # Metadatos y dependencias del paquete
 └── src/consultar_computadora/
@@ -278,18 +294,18 @@ Probá un modelo más chico en `--ollama` y mantené el modelo Whisper en `base`
     ├── metricas.py                 # Cronómetro opcional (--metricas)
     ├── stt.py                      # Transcripción con Whisper y palabras de activación
     ├── transcribir.py              # Subcomando de depuración: transcribir
-    └── tts.py                      # Corte en oraciones y reproducción con Kokoro
+    └── tts.py                      # Voz de Piper: corte en oraciones y reproducción
 ```
  
 ## Tecnologías
  
 - [faster-whisper](https://github.com/SYSTRAN/faster-whisper): reconocimiento de voz
 - [Ollama](https://ollama.com): ejecución local del modelo de lenguaje
-- [Kokoro TTS](https://github.com/hexgrad/kokoro): síntesis de voz
+- [Piper](https://github.com/OHF-Voice/piper1-gpl): síntesis de voz
 - [sounddevice](https://python-sounddevice.readthedocs.io/): captura y reproducción de audio
 - [uv](https://docs.astral.sh/uv/): gestión de paquetes e instalación
 ## Licencia
  
-Este repositorio todavía no tiene una licencia definida. Si querés que otras personas puedan usarlo y modificarlo, agregá un archivo `LICENSE` (por ejemplo, MIT).
+[GPL-3.0-or-later](LICENSE), la misma licencia que usa Piper.
  
 
